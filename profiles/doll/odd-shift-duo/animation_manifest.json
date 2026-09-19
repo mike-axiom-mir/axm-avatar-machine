@@ -1,0 +1,11 @@
+{
+  "asset": "Odd-Shift-Duo.glb",
+  "fps": 24,
+  "animation": "OddShift_Duo_Demo",
+  "clips": [
+    {"name": "Curious_Idle", "start": 1, "end": 32, "loop": true},
+    {"name": "Swagger_Walk", "start": 33, "end": 72, "loop": true},
+    {"name": "High_Five", "start": 73, "end": 104, "loop": false},
+    {"name": "Victory", "start": 105, "end": 144, "loop": true}
+  ]
+}

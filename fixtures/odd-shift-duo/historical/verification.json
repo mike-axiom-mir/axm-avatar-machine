@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "checks": {
+    "blend_title_metadata": true,
+    "one_shared_armature": true,
+    "expected_bone_count": true,
+    "synchronized_action_present": true,
+    "animation_covers_authored_range": true,
+    "clip_markers_present": true,
+    "high_five_contact_under_12cm": true,
+    "export_meshes_have_materials": true,
+    "reference_not_embedded": true,
+    "glb_magic_and_version": true,
+    "glb_declared_size_matches": true,
+    "glb_has_one_skin": true,
+    "glb_has_34_joints": true,
+    "glb_has_meshes": true,
+    "glb_has_materials": true,
+    "glb_has_synchronized_animation": true,
+    "glb_animation_is_substantive": true,
+    "poster_exists": true,
+    "preview_is_h264": true,
+    "preview_dimensions": true,
+    "preview_duration": true
+  },
+  "metrics": {
+    "export_objects": 106,
+    "mesh_nodes": 105,
+    "materials": 28,
+    "joints": 34,
+    "animation_channels": 102,
+    "high_five_hand_distance_m": 0.0857,
+    "glb_bytes": 1119572,
+    "preview_frames": 72,
+    "preview_seconds": 6.0
+  },
+  "visual_review": {
+    "frames_reviewed": [
+      17,
+      53,
+      92,
+      124
+    ],
+    "result": "Readable identity anchors, distinct silhouettes, grounded walk, clear contact pose, and clean victory pose.",
+    "showcase_only_stage_excluded_from_glb": true
+  }
+}
