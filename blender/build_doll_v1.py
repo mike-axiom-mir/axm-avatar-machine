@@ -796,6 +796,20 @@ def _state_digest(value):
     return hashlib.sha256(body).hexdigest()
 
 
+def _canonical_face(indices):
+    """Return a face signature independent of Blender's traversal choices."""
+    values = list(indices)
+    if not values:
+        return []
+    forward = [tuple(values[index:] + values[:index]) for index in range(len(values))]
+    reversed_values = list(reversed(values))
+    backward = [
+        tuple(reversed_values[index:] + reversed_values[:index])
+        for index in range(len(reversed_values))
+    ]
+    return list(min(forward + backward))
+
+
 def _geometry_atom(obj):
     modifiers = []
     for modifier in obj.modifiers:
@@ -809,7 +823,10 @@ def _geometry_atom(obj):
         payload = {
             "type": "MESH",
             "vertices": [_numbers(vertex.co) for vertex in obj.data.vertices],
-            "polygons": [list(polygon.vertices) for polygon in obj.data.polygons],
+            # Polygon iteration order, winding, and cyclic start are not geometry.
+            # Sorting canonical faces prevents identical meshes from becoming new
+            # atoms because Blender happened to traverse their faces differently.
+            "polygons": sorted(_canonical_face(polygon.vertices) for polygon in obj.data.polygons),
             "modifiers": modifiers,
         }
     elif obj.type in {"CURVE", "FONT"}:
