@@ -22,4 +22,3 @@ def load_profile(profile_id: str = PROFILE_ID) -> dict[str, Any]:
     if profile.get("id") != PROFILE_ID:
         raise ValueError("profile identity mismatch")
     return profile
-

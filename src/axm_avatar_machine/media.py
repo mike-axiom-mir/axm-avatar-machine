@@ -33,4 +33,3 @@ def probe_video(path: str | Path) -> dict[str, Any]:
         timeout=60,
     )
     return json.loads(completed.stdout)
-

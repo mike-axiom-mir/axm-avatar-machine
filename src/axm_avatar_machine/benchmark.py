@@ -63,4 +63,3 @@ def write_comparison(historical: str | Path, generated: str | Path, destination:
     result = compare_outputs(historical, generated)
     Path(destination).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
-

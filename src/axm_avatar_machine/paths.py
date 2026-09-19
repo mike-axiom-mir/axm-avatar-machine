@@ -26,4 +26,3 @@ def machine_root() -> Path:
     raise FileNotFoundError(
         "Avatar Machine profiles/scripts were not found. Run from the clone or set AXM_AVATAR_MACHINE_ROOT."
     )
-
