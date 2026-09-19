@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axm-avatar-machine"
+version = "0.1.0"
+description = "Standalone AXM doll/avatar creation pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = []
+
+[project.optional-dependencies]
+visual-regression = ["Pillow>=12,<13"]
+authoring = ["bpy==4.3.0", "numpy==1.26.4"]
+
+[project.scripts]
+axm-avatar = "axm_avatar_machine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.data-files]
+"share/axm-avatar-machine/blender" = [
+  "blender/build_doll_v1.py",
+  "blender/render_doll_v1.py",
+  "blender/verify_doll_v1.py",
+]
+"share/axm-avatar-machine/profiles/doll/odd-shift-duo" = [
+  "profiles/doll/odd-shift-duo/profile.json",
+  "profiles/doll/odd-shift-duo/avatar-blueprint.json",
+  "profiles/doll/odd-shift-duo/creator-parts.json",
+  "profiles/doll/odd-shift-duo/animation_manifest.json",
+  "profiles/doll/odd-shift-duo/VISUAL_CONTRACT.md",
+]

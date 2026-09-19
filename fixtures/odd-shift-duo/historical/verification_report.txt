@@ -1,0 +1,41 @@
+ODD SHIFT DUO — VERIFICATION REPORT
+STATUS: PASS
+
+STRUCTURAL CHECKS
+[PASS] blend_title_metadata
+[PASS] one_shared_armature
+[PASS] expected_bone_count
+[PASS] synchronized_action_present
+[PASS] animation_covers_authored_range
+[PASS] clip_markers_present
+[PASS] high_five_contact_under_12cm
+[PASS] export_meshes_have_materials
+[PASS] reference_not_embedded
+[PASS] glb_magic_and_version
+[PASS] glb_declared_size_matches
+[PASS] glb_has_one_skin
+[PASS] glb_has_34_joints
+[PASS] glb_has_meshes
+[PASS] glb_has_materials
+[PASS] glb_has_synchronized_animation
+[PASS] glb_animation_is_substantive
+[PASS] poster_exists
+[PASS] preview_is_h264
+[PASS] preview_dimensions
+[PASS] preview_duration
+
+METRICS
+export_objects: 106
+mesh_nodes: 105
+materials: 28
+joints: 34
+animation_channels: 102
+high_five_hand_distance_m: 0.0857
+glb_bytes: 1119572
+preview_frames: 72
+preview_seconds: 6.0
+
+VISUAL REVIEW
+Frames inspected: 17 (idle), 53 (walk), 92 (high-five), 124 (victory)
+Readable identity anchors, distinct silhouettes, grounded walk, clear contact pose, and clean victory pose.
+The supplied photograph is not packed into the Blender file or exported GLB.

@@ -1,0 +1,30 @@
+{
+  "schema": "axm.avatar.blueprint/v1-candidate",
+  "status": "PREAUTHORED_PROFILE_NOT_YET_GENERAL_COMPILER_INPUT",
+  "id": "odd-shift-duo",
+  "style": {
+    "family": "stylized-doll",
+    "form": "rounded-game-readable",
+    "materials": "semi-real",
+    "photo_texture_projection": false
+  },
+  "characters": [
+    {
+      "id": "chaos",
+      "silhouette": "compact-broad",
+      "identity_anchors": ["bald-head", "short-dark-stubble", "comic-pucker"],
+      "wardrobe": ["blue-hoodie", "black-jacket", "neck-headphones"]
+    },
+    {
+      "id": "deadpan",
+      "silhouette": "tall-slim",
+      "identity_anchors": ["swept-brown-hair", "raised-brow", "crooked-half-smile"],
+      "wardrobe": ["white-polo", "fictional-gold-crescent-pin"]
+    }
+  ],
+  "rig": {"shared": true, "joints": 34},
+  "animation_beats": ["Curious_Idle", "Swagger_Walk", "High_Five", "Victory"],
+  "interpretation_provenance": "platform/model-assisted decisions made explicit for future human-or-AI editing",
+  "compiler_truth": "The current builder reproduces these authored decisions from code; arbitrary blueprint-to-avatar compilation is not yet implemented."
+}
+

@@ -1,0 +1,13 @@
+{
+  "title": "Odd Shift Duo",
+  "fps": 24,
+  "frame_start": 1,
+  "frame_end": 144,
+  "export_object_count": 106,
+  "mesh_count": 100,
+  "curve_count": 5,
+  "armature_count": 1,
+  "bone_count": 34,
+  "action": "OddShift_Duo_Demo",
+  "reference_embedded": false
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "axm.avatar.profile/v1",
+  "id": "doll/odd-shift-duo@1",
+  "name": "Doll Profile v1 — Odd Shift Duo",
+  "status": "IMPLEMENTED_LOCAL_PREAUTHORED_PROFILE",
+  "scripts": {
+    "build": "blender/build_doll_v1.py",
+    "render": "blender/render_doll_v1.py",
+    "verify": "blender/verify_doll_v1.py"
+  },
+  "output_modes": ["visual", "clip", "3d", "animated-3d"],
+  "common_pipeline": true,
+  "creator_parts": {
+    "manifest": "profiles/doll/odd-shift-duo/creator-parts.json",
+    "retention": "SOURCE_AUTHORITY_EVERY_SUCCESSFUL_BUILD"
+  },
+  "historical_metrics": {
+    "meshes": 105,
+    "materials": 28,
+    "skins": 1,
+    "joints": 34,
+    "skin_bindings": 0,
+    "animations": 1,
+    "animation_channels": 102
+  },
+  "reference_interpretation": {
+    "status": "HOLD_PLATFORM_MODEL_ASSISTED",
+    "reason": "The retained generator contains authored likeness decisions but no executable image-to-design interpreter."
+  },
+  "deformation": {
+    "model": "RIGID_BONE_PARENTING",
+    "skinned_mesh_deformation": false,
+    "reason": "The historical and reproduced GLBs have one 34-joint skin record but no mesh node references it. Mesh parts animate as rigid joint children."
+  },
+  "future_profiles": [
+    "realistic-avatar",
+    "semi-realistic-avatar",
+    "cartoon-avatar",
+    "mascot",
+    "game-character",
+    "morphtile-character",
+    "upgrade-existing-avatar"
+  ]
+}

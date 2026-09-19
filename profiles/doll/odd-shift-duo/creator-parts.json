@@ -1,0 +1,40 @@
+{
+  "schema": "axm.avatar.creator-parts/v1",
+  "profile": "doll/odd-shift-duo@1",
+  "source_authority": true,
+  "realizations_are_secondary": true,
+  "deduplication": {
+    "geometry": "Local geometry/topology and modifiers define an atom; names, placement and materials do not.",
+    "materials": "Material node structure and non-color behavior define a family atom; color/emission color are appearance overrides.",
+    "growth_rule": "Repeated or color-only variants remain reproducible instances but do not count as new atoms."
+  },
+  "construction_primitives": [
+    {"id": "box", "source_symbol": "box", "controls": ["location", "dimensions", "rotation", "edge", "material"]},
+    {"id": "ellipsoid", "source_symbol": "ellipsoid", "controls": ["location", "scale", "segments", "material"]},
+    {"id": "cylinder", "source_symbol": "cylinder", "controls": ["location", "radius", "depth", "rotation", "vertices", "material"]},
+    {"id": "cone", "source_symbol": "cone", "controls": ["location", "radius1", "radius2", "depth", "rotation", "vertices", "material"]},
+    {"id": "torus", "source_symbol": "torus", "controls": ["location", "major_radius", "minor_radius", "rotation", "scale", "material"]},
+    {"id": "curve-tube", "source_symbol": "curve_tube", "controls": ["points", "radius", "cyclic", "material"]},
+    {"id": "text", "source_symbol": "add_text", "controls": ["body", "location", "rotation", "size", "extrude", "material"]}
+  ],
+  "assemblies": [
+    {"id": "chaos-character", "source_symbol": "make_chaos"},
+    {"id": "deadpan-character", "source_symbol": "make_deadpan"},
+    {"id": "shared-rig", "source_symbol": "create_rig"},
+    {"id": "four-beat-motion", "source_symbol": "animate"},
+    {"id": "showcase-stage", "source_symbol": "make_stage"},
+    {"id": "camera-and-lighting", "source_symbol": "setup_camera_lights"}
+  ],
+  "retained_layers": [
+    "request",
+    "avatar-blueprint",
+    "visual-contract",
+    "construction-source",
+    "part-instances",
+    "material-controls",
+    "rig-hierarchy",
+    "motion-keyframes",
+    "verification-source"
+  ],
+  "current_edit_boundary": "Primitive and assembly controls are real Python builder inputs. General blueprint-to-part compilation remains a HOLD."
+}
