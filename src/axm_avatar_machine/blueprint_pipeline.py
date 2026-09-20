@@ -70,19 +70,6 @@ def build_blueprint(
     _run(command, logs / "build.stdout.txt", logs / "build.stderr.txt", timeout_seconds)
 
     material_proof = output / "material-response-proof"
-    if runtime["kind"] == "blender-cli":
-        material_command = [
-            executable, "--background", "--factory-startup", "--python-exit-code", "1",
-            "--python", str(material_verifier), "--", "--output", str(material_proof),
-        ]
-    else:
-        material_command = [executable, str(material_verifier), "--output", str(material_proof)]
-    _run(
-        material_command,
-        logs / "material-response.stdout.txt",
-        logs / "material-response.stderr.txt",
-        timeout_seconds,
-    )
     material_verification = json.loads((material_proof / "receipt.json").read_text(encoding="utf-8"))
 
     inspection = inspect_glb(output / "Blueprint-Avatar.glb")
@@ -93,17 +80,8 @@ def build_blueprint(
     material_response = dict(builder_receipt.get(
         "material_response", {"status": "PASS_NO_ACTIVE_ORGANS", "active_organs": []}
     ))
-    material_response["render_verified_organs"] = material_verification["verified_organs"]
-    material_response["host_verification"] = material_verification
-    held = material_response.get("held_organs", [])
-    bound = set(material_response.get("bound_not_render_verified_organs", []))
-    verified = set(material_verification.get("verified_organs", []))
-    if held:
-        material_response["status"] = "HOLD_PARTIAL_BINDING_AFTER_HOST_VERIFICATION"
-    elif bound and not bound.issubset(verified):
-        material_response["status"] = "HOLD_RENDER_VERIFICATION_INCOMPLETE"
-    elif bound:
-        material_response["status"] = "PASS_BOUND_ORGANS_HOST_VERIFIED"
+    if material_response.get("host_verification") != material_verification:
+        raise RuntimeError("builder and retained material-response verification receipts disagree")
     receipt = {
         "schema": "axm.avatar.blueprint-run-receipt/v1",
         "blueprint_schema": blueprint["schema"],

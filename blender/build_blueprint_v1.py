@@ -381,6 +381,10 @@ def main():
     )
     bpy.ops.object.select_all(action="DESELECT")
     bpy.ops.render.render(write_still=True)
+
+    from verify_material_response_v1 import run_verification
+    material_verification = run_verification(out / "material-response-proof")
+
     response_materials = [spec for spec in plan["materials"] if spec.get("response_family")]
     active_response_organs = sorted({
         organ for spec in response_materials for organ in spec.get("active_organs", [])
@@ -391,11 +395,20 @@ def main():
     held_response_organs = [
         item for receipt in response_binding_receipts for item in receipt.get("held_organs", [])
     ]
+    verified_response_organs = sorted(material_verification.get("verified_organs", []))
     material_response_status = "PASS_NO_ACTIVE_ORGANS"
     if bound_response_organs:
-        material_response_status = "HOLD_RENDER_VERIFICATION_REQUIRED"
+        material_response_status = (
+            "PASS_BOUND_ORGANS_HOST_VERIFIED"
+            if set(bound_response_organs).issubset(set(verified_response_organs))
+            else "HOLD_RENDER_VERIFICATION_INCOMPLETE"
+        )
     if held_response_organs:
-        material_response_status = "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED"
+        material_response_status = (
+            "HOLD_PARTIAL_BINDING_AFTER_HOST_VERIFICATION"
+            if set(bound_response_organs).issubset(set(verified_response_organs))
+            else "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED"
+        )
     receipt = {
         "schema": "axm.avatar.blueprint-build-receipt/v1",
         "plan_sha256": plan["plan_sha256"],
@@ -410,7 +423,8 @@ def main():
             "active_organs": active_response_organs,
             "bound_not_render_verified_organs": bound_response_organs,
             "held_organs": held_response_organs,
-            "render_verified_organs": [],
+            "render_verified_organs": verified_response_organs,
+            "host_verification": material_verification,
             "base_scalar_projection": True,
             "cheap_four_binding_constructed": bool(bound_response_organs),
             "binding_receipts": response_binding_receipts,

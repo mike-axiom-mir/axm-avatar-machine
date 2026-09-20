@@ -18,7 +18,10 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_blueprint_v1 import make_material, reset_scene  # noqa: E402
+try:
+    from __main__ import make_material, reset_scene
+except ImportError:
+    from build_blueprint_v1 import make_material, reset_scene  # type: ignore
 from axm_avatar_machine.material_response import compile_blender_response_binding  # noqa: E402
 
 
@@ -220,9 +223,8 @@ def _render_pair(scene, sphere, output, name, base, response):
     return on, off
 
 
-def main():
-    cfg = parse_args()
-    output = Path(cfg.output).resolve()
+def run_verification(output_path):
+    output = Path(output_path).resolve()
     output.mkdir(parents=True, exist_ok=True)
     scene, sphere = _setup_probe_scene()
     cases = {}
@@ -354,6 +356,12 @@ def main():
         ),
     }
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt
+
+
+def main():
+    cfg = parse_args()
+    receipt = run_verification(cfg.output)
     print(json.dumps(receipt, indent=2))
 
 
