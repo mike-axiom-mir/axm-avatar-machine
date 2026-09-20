@@ -18,3 +18,48 @@ jobs:
       - name: Compile Python sources
         run: python -m py_compile src/axm_avatar_machine/*.py blender/*.py
       - run: PYTHONPATH=src python -m unittest discover -s tests -v
+
+  blueprint-bpy-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Blender Python authoring runtime
+        run: python -m pip install -e '.[authoring]'
+      - name: Prove bpy runtime
+        run: python -c "import bpy; assert bpy.app.version_string.startswith('4.3'); print(bpy.app.version_string)"
+      - name: Build material-response Blueprint
+        run: |
+          axm-avatar build-blueprint             examples/blueprint-doll-pair-material-response-v1.json             /tmp/axm-avatar-blueprint-proof             --bpy-python "$(which python)"             --timeout-seconds 900
+      - name: Check proof pack and binding receipts
+        run: |
+          python - <<'PY'
+          import json, struct
+          from pathlib import Path
+          root = Path("/tmp/axm-avatar-blueprint-proof")
+          for name in ["Blueprint-Avatar.blend", "Blueprint-Avatar.glb", "Blueprint-Avatar-Poster.png",
+                       "structural-inspection.json", "blueprint-run-receipt.json", "build-receipt.json"]:
+              path = root / name
+              assert path.is_file() and path.stat().st_size > 0, name
+          png = (root / "Blueprint-Avatar-Poster.png").read_bytes()
+          assert png[:8] == b"\x89PNG\r\n\x1a\n"
+          width, height = struct.unpack(">II", png[16:24])
+          assert (width, height) == (900, 900), (width, height)
+          receipt = json.loads((root / "build-receipt.json").read_text())
+          material = receipt["material_response"]
+          assert set(["surface.breakup", "surface.sheen", "surface.coat", "surface.anisotropy"]).issubset(
+              set(material["bound_not_render_verified_organs"])
+          ), material
+          assert material["render_verified_organs"] == []
+          assert material["status"].startswith("HOLD_")
+          structural = json.loads((root / "structural-inspection.json").read_text())
+          assert structural["status"] == "PASS", structural
+          print(json.dumps(material, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avatar-blueprint-material-proof
+          path: /tmp/axm-avatar-blueprint-proof
+          if-no-files-found: error

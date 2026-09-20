@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .material_response import validate_surface_selection, resolve_surface_selection
+from .material_response import compile_blender_response_binding, validate_surface_selection, resolve_surface_selection
 
 BLUEPRINT_SCHEMA = "axm.avatar.blueprint/v1"
 SCENE_PLAN_SCHEMA = "axm.avatar.scene-plan/v1"
@@ -244,7 +244,9 @@ def _material_table(blueprint: dict[str, Any]) -> list[dict[str, Any]]:
                 material["response"] = response["response"]
                 material["active_organs"] = response["active_organs"]
                 material["response_evidence"] = response["evidence"]
-                material["response_renderer_binding"] = response["renderer_binding"]
+                binding = compile_blender_response_binding(response["response"])
+                material["blender_response_binding"] = binding
+                material["response_renderer_binding"] = binding["status"]
                 material["metallic"] = round(float(response["response"].get("metallic", material["metallic"])), 4)
                 material["roughness"] = round(float(response["response"].get("roughness", material["roughness"])), 4)
                 if "specular" in response["response"]:

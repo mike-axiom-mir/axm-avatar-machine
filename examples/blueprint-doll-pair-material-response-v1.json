@@ -41,7 +41,7 @@
         "skin": "skin-living",
         "primary": "fabric-worn-cotton",
         "secondary": "fabric-worn-cotton",
-        "shoes": "rubber-worn"
+        "shoes": "metal-brushed"
       }
     },
     {
@@ -79,7 +79,7 @@
         "skin": "skin-living",
         "primary": "fabric-worn-cotton",
         "secondary": "fabric-worn-cotton",
-        "shoes": "rubber-worn",
+        "shoes": "metal-brushed",
         "hair": "fabric-velvet"
       }
     }

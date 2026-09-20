@@ -13,6 +13,7 @@ from typing import Any
 from .paths import machine_root
 
 EVIDENCE = "declared_contract_match_not_tested"
+CHEAP_FOUR = {"surface.breakup", "surface.sheen", "surface.coat", "surface.anisotropy"}
 SOURCE_ARCHIVE_SHA256 = "9b263ddd536c7f9aa1b6640ad7672283c0e30e7c2b818a7ee23076aafdd1a363"
 SOURCE_PACK_SHA256 = "cc101f7f975e4334570b89d3dacede28e537f6ae09fd11af49d9864a2d064cf5"
 
@@ -202,4 +203,114 @@ def material_response_catalog() -> dict[str, Any]:
             "archive_sha256": SOURCE_ARCHIVE_SHA256,
             "declared_source_pack_sha256": SOURCE_PACK_SHA256,
         },
+    }
+
+
+def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]:
+    """Compile the cheap-four response organs to an inspectable Blender 4.x binding plan.
+
+    This is a host binding contract, not render evidence. Any active organ outside
+    the cheap four stays explicit HOLD. Grain/custom-vector anisotropy also stays
+    HOLD until Avatar Machine has a mesh-owned direction field.
+    """
+    if not isinstance(response, dict):
+        raise MaterialResponseHold("material response must be an object")
+    requested = active_organs(response)
+    sockets: dict[str, float] = {}
+    colors: dict[str, list[float]] = {}
+    nodes: list[dict[str, Any]] = []
+    bound: list[str] = []
+    held: list[dict[str, str]] = []
+    approximations: list[str] = []
+
+    if "surface.sheen" in requested:
+        value = response.get("sheen", {})
+        sockets["Sheen Weight"] = float(value.get("weight", 0))
+        sockets["Sheen Roughness"] = float(value.get("roughness", 0.3))
+        if isinstance(value.get("tint"), list) and len(value["tint"]) == 3:
+            colors["Sheen Tint"] = [float(v) for v in value["tint"]]
+        bound.append("surface.sheen")
+
+    if "surface.coat" in requested:
+        value = response.get("clearcoat", {})
+        sockets["Coat Weight"] = float(value.get("weight", 0))
+        sockets["Coat Roughness"] = float(value.get("roughness", 0.05))
+        sockets["Coat IOR"] = float(value.get("ior", 1.5))
+        if isinstance(value.get("tint"), list) and len(value["tint"]) == 3:
+            colors["Coat Tint"] = [float(v) for v in value["tint"]]
+        bound.append("surface.coat")
+
+    if "surface.breakup" in requested:
+        value = response.get("breakup", {})
+        scale_mm = max(0.05, float(value.get("scale_mm", 2)))
+        octaves = max(1, min(4, int(value.get("octaves", 2))))
+        seed = int(value.get("seed", 7))
+        nodes.append({
+            "kind": "object-space-noise-breakup",
+            "coordinate_space": "OBJECT",
+            "noise_dimensions": "4D",
+            "scale": round(1000.0 / scale_mm, 8),
+            "detail": float(octaves - 1),
+            "seed_w": round(((seed % 100000) * 0.61803398875) % 1000.0, 8),
+            "roughness_variation": float(value.get("roughness_variation", 0)),
+            "color_variation": float(value.get("color_variation", 0)),
+        })
+        bound.append("surface.breakup")
+
+    if "surface.anisotropy" in requested:
+        value = response.get("anisotropy", {})
+        direction = value.get("direction", "tangent_u")
+        if direction not in {"tangent_u", "tangent_v"}:
+            held.append({
+                "organ": "surface.anisotropy",
+                "reason": "HOLD_DIRECTION_FIELD_NOT_OWNED",
+            })
+        else:
+            strength = float(value.get("strength", 0))
+            rotation = float(value.get("rotation", 0)) % 1.0
+            if strength < 0:
+                rotation = (rotation + 0.25) % 1.0
+            if direction == "tangent_v":
+                rotation = (rotation + 0.25) % 1.0
+            sockets["Anisotropic IOR Level"] = abs(strength)
+            sockets["Anisotropic Rotation"] = rotation
+            nodes.append({
+                "kind": "radial-object-tangent",
+                "direction_type": "RADIAL",
+                "axis": "Z",
+                "source_direction": direction,
+            })
+            approximations.append(
+                "Anisotropy uses a deterministic object-local radial-Z tangent in the generic primitive host; "
+                "render evidence is still required before equivalence to the donor reference host is claimed."
+            )
+            bound.append("surface.anisotropy")
+
+    for organ in requested:
+        if organ in CHEAP_FOUR:
+            continue
+        held.append({"organ": organ, "reason": "HOLD_ORGAN_NOT_BOUND_IN_BLUEPRINT_BLENDER_V1"})
+
+    status = "PASS_NO_ACTIVE_ORGANS"
+    if requested:
+        status = "HOLD_RENDER_VERIFICATION_REQUIRED"
+    if held:
+        status = "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED"
+
+    return {
+        "schema": "axm.avatar.blender-material-response-binding/v0.1",
+        "requested_organs": requested,
+        "bound_organs": sorted(set(bound)),
+        "held_organs": held,
+        "principled_sockets": sockets,
+        "principled_colors": colors,
+        "node_plans": nodes,
+        "approximations": approximations,
+        "evidence": EVIDENCE,
+        "render_verified_organs": [],
+        "status": status,
+        "truth": (
+            "Bound means the Blender node/socket construction is explicitly planned. "
+            "It does not mean the organ's visual verify case has passed in Blender."
+        ),
     }

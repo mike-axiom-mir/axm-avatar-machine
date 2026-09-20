@@ -6,6 +6,7 @@ from axm_avatar_machine.blueprint import compile_blueprint
 from axm_avatar_machine.material_response import (
     MaterialResponseHold,
     active_organs,
+    compile_blender_response_binding,
     material_response_catalog,
     resolve_material_response,
 )
@@ -35,6 +36,58 @@ class MaterialResponseTests(unittest.TestCase):
             "layers": [],
         }
         self.assertEqual(active_organs(response), [])
+
+    def test_skin_cheap_three_bind_and_subsurface_stays_held(self):
+        response = resolve_material_response("skin-living", color_hex="#d3a27f")["response"]
+        binding = compile_blender_response_binding(response)
+        self.assertEqual(
+            set(binding["bound_organs"]),
+            {"surface.breakup", "surface.coat", "surface.sheen"},
+        )
+        self.assertEqual(
+            binding["held_organs"],
+            [{"organ": "surface.subsurface", "reason": "HOLD_ORGAN_NOT_BOUND_IN_BLUEPRINT_BLENDER_V1"}],
+        )
+        self.assertEqual(binding["status"], "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED")
+
+    def test_metal_brushed_gets_anisotropy_and_object_space_breakup_plan(self):
+        response = resolve_material_response("metal-brushed", color_hex="#777777")["response"]
+        binding = compile_blender_response_binding(response)
+        self.assertEqual(set(binding["bound_organs"]), {"surface.anisotropy", "surface.breakup"})
+        self.assertFalse(binding["held_organs"])
+        self.assertEqual(binding["principled_sockets"]["Anisotropic IOR Level"], 0.8)
+        tangent = next(item for item in binding["node_plans"] if item["kind"] == "radial-object-tangent")
+        self.assertEqual((tangent["direction_type"], tangent["axis"]), ("RADIAL", "Z"))
+        breakup = next(item for item in binding["node_plans"] if item["kind"] == "object-space-noise-breakup")
+        self.assertEqual(breakup["coordinate_space"], "OBJECT")
+
+    def test_grain_anisotropy_holds_until_mesh_direction_is_owned(self):
+        response = resolve_material_response("wood-oiled", color_hex="#654321")["response"]
+        binding = compile_blender_response_binding(response)
+        held = {item["organ"]: item["reason"] for item in binding["held_organs"]}
+        self.assertEqual(held["surface.anisotropy"], "HOLD_DIRECTION_FIELD_NOT_OWNED")
+        self.assertIn("surface.coat", binding["bound_organs"])
+        self.assertIn("surface.breakup", binding["bound_organs"])
+
+    def test_zero_weight_binding_plan_is_empty_noop(self):
+        response = {
+            "roughness": 0.5,
+            "subsurface": {"weight": 0},
+            "sheen": {"weight": 0},
+            "anisotropy": {"strength": 0},
+            "clearcoat": {"weight": 0},
+            "breakup": {"roughness_variation": 0, "color_variation": 0, "scale_mm": 2},
+            "transmission": 0,
+            "iridescence": {"weight": 0},
+            "layers": [],
+        }
+        binding = compile_blender_response_binding(response)
+        self.assertEqual(binding["requested_organs"], [])
+        self.assertEqual(binding["bound_organs"], [])
+        self.assertEqual(binding["held_organs"], [])
+        self.assertEqual(binding["principled_sockets"], {})
+        self.assertEqual(binding["node_plans"], [])
+        self.assertEqual(binding["status"], "PASS_NO_ACTIVE_ORGANS")
 
     def test_unknown_family_fails_closed(self):
         with self.assertRaises(MaterialResponseHold):
