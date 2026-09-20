@@ -36,7 +36,7 @@ jobs:
         run: |
           set +e
           axm-avatar build-blueprint \
-            examples/blueprint-doll-pair-material-response-v1.json \
+            examples/blueprint-doll-pair-anatomy-v1.json \
             /tmp/axm-avatar-blueprint-proof \
             --bpy-python "$(which python)" \
             --timeout-seconds 900
@@ -65,6 +65,13 @@ jobs:
           assert png[:8] == b"\x89PNG\r\n\x1a\n"
           width, height = struct.unpack(">II", png[16:24])
           assert (width, height) == (900, 900), (width, height)
+          plan = json.loads((root / "scene-plan.json").read_text())
+          object_ids = {item["id"] for item in plan["objects"]}
+          for expected in {
+              "compact:nose", "compact:jaw", "compact:L-ear", "compact:R-ear",
+              "lanky:nose", "lanky:jaw", "lanky:L-ear", "lanky:R-ear",
+          }:
+              assert expected in object_ids, expected
           receipt = json.loads((root / "build-receipt.json").read_text())
           material = receipt["material_response"]
           assert set(material["bound_not_render_verified_organs"]) == {
