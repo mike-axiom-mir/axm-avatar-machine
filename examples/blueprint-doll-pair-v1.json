@@ -1,0 +1,100 @@
+{
+  "schema": "axm.avatar.blueprint/v1",
+  "id": "workbench-duo",
+  "style": {
+    "family": "stylized-doll",
+    "material_finish": "semi-real"
+  },
+  "characters": [
+    {
+      "id": "compact",
+      "proportions": {
+        "height": 0.96,
+        "head": 1.08,
+        "torso_width": 1.12,
+        "limb_length": 0.94
+      },
+      "palette": {
+        "skin": "#d3a27f",
+        "primary": "#275b91",
+        "secondary": "#17191e",
+        "hair": "#2c211d",
+        "shoes": "#f1f1ed"
+      },
+      "features": {
+        "hair": "none",
+        "facial_hair": "stubble",
+        "eyes": "round",
+        "mouth": "pucker"
+      },
+      "wardrobe": {
+        "top": "hoodie",
+        "bottom": "jeans",
+        "accessory": "headphones"
+      },
+      "position": [
+        -1.0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "lanky",
+      "proportions": {
+        "height": 1.08,
+        "head": 0.98,
+        "torso_width": 0.9,
+        "limb_length": 1.12
+      },
+      "palette": {
+        "skin": "#deb08b",
+        "primary": "#ecebe6",
+        "secondary": "#272a31",
+        "hair": "#5b3928",
+        "shoes": "#151619"
+      },
+      "features": {
+        "hair": "swept",
+        "facial_hair": "none",
+        "eyes": "narrow",
+        "mouth": "smile"
+      },
+      "wardrobe": {
+        "top": "polo",
+        "bottom": "trousers",
+        "accessory": "pin"
+      },
+      "position": [
+        1.0,
+        0,
+        0
+      ]
+    }
+  ],
+  "rig": {
+    "preset": "rigid-doll-17-per-character",
+    "shared_armature": true
+  },
+  "animation_beats": [
+    {
+      "name": "idle",
+      "frame": 1
+    },
+    {
+      "name": "walk",
+      "frame": 33
+    },
+    {
+      "name": "wave",
+      "frame": 73
+    },
+    {
+      "name": "celebrate",
+      "frame": 105
+    }
+  ],
+  "authorship": {
+    "method": "HUMAN_EXPLICIT_EXAMPLE",
+    "reference_interpretation": "none"
+  }
+}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axm-avatar-machine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Standalone AXM doll/avatar creation pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 visual-regression = ["Pillow>=12,<13"]
-authoring = ["bpy==4.3.0", "numpy==1.26.4"]
+authoring = ["bpy==4.3.0", "numpy==1.26.4", "Pillow>=12,<13"]
 
 [project.scripts]
 axm-avatar = "axm_avatar_machine.cli:main"
@@ -26,6 +26,8 @@ where = ["src"]
   "blender/build_doll_v1.py",
   "blender/render_doll_v1.py",
   "blender/verify_doll_v1.py",
+  "blender/build_blueprint_v1.py",
+  "blender/verify_material_response_v1.py",
 ]
 "share/axm-avatar-machine/profiles/doll/odd-shift-duo" = [
   "profiles/doll/odd-shift-duo/profile.json",
@@ -33,4 +35,9 @@ where = ["src"]
   "profiles/doll/odd-shift-duo/creator-parts.json",
   "profiles/doll/odd-shift-duo/animation_manifest.json",
   "profiles/doll/odd-shift-duo/VISUAL_CONTRACT.md",
+]
+"share/axm-avatar-machine/material-response" = [
+  "material-response/pack.json",
+  "material-response/organs.json",
+  "material-response/schema.json",
 ]

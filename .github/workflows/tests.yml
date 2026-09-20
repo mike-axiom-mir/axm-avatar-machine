@@ -15,4 +15,89 @@ jobs:
       - name: Install media verifier
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - run: python -m pip install -e .
+      - name: Compile Python sources
+        run: python -m py_compile src/axm_avatar_machine/*.py blender/*.py
       - run: PYTHONPATH=src python -m unittest discover -s tests -v
+
+  blueprint-bpy-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install headless EEVEE runtime libraries
+        run: sudo apt-get update && sudo apt-get install --yes libegl1 libgl1
+      - name: Install Blender Python authoring runtime
+        run: python -m pip install -e '.[authoring]'
+      - name: Prove bpy runtime
+        run: python -c "import bpy; assert bpy.app.version_string.startswith('4.3'); print(bpy.app.version_string)"
+      - name: Build material-response Blueprint
+        run: |
+          set +e
+          axm-avatar build-blueprint \
+            examples/blueprint-doll-pair-material-response-v1.json \
+            /tmp/axm-avatar-blueprint-proof \
+            --bpy-python "$(which python)" \
+            --timeout-seconds 900
+          status=$?
+          if [ -f /tmp/axm-avatar-blueprint-proof/logs/build.stderr.txt ]; then
+            echo "----- retained Blender stderr -----"
+            cat /tmp/axm-avatar-blueprint-proof/logs/build.stderr.txt
+          fi
+          if [ -f /tmp/axm-avatar-blueprint-proof/logs/build.stdout.txt ]; then
+            echo "----- retained Blender stdout -----"
+            tail -n 120 /tmp/axm-avatar-blueprint-proof/logs/build.stdout.txt
+          fi
+          exit $status
+      - name: Check proof pack and binding receipts
+        run: |
+          python - <<'PY'
+          import json, struct
+          from pathlib import Path
+          root = Path("/tmp/axm-avatar-blueprint-proof")
+          for name in ["Blueprint-Avatar.blend", "Blueprint-Avatar.glb", "Blueprint-Avatar-Poster.png",
+                       "structural-inspection.json", "blueprint-run-receipt.json", "build-receipt.json",
+                       "material-response-proof/receipt.json"]:
+              path = root / name
+              assert path.is_file() and path.stat().st_size > 0, name
+          png = (root / "Blueprint-Avatar-Poster.png").read_bytes()
+          assert png[:8] == b"\x89PNG\r\n\x1a\n"
+          width, height = struct.unpack(">II", png[16:24])
+          assert (width, height) == (900, 900), (width, height)
+          receipt = json.loads((root / "build-receipt.json").read_text())
+          material = receipt["material_response"]
+          assert set(material["bound_not_render_verified_organs"]) == {
+              "surface.breakup", "surface.sheen", "surface.coat"
+          }, material
+          held = {item["organ"]: item["reason"] for item in material["held_organs"]}
+          assert held["surface.anisotropy"] == "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED", material
+          assert held["surface.subsurface"] == "HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE", material
+          assert set(material["render_verified_organs"]) == {
+              "surface.breakup", "surface.sheen", "surface.coat"
+          }, material
+          assert material["render_verified_partial_organs"] == [{
+              "organ": "surface.subsurface",
+              "bound_fields": ["weight", "radius_mm"],
+              "renderer_method": "BURLEY",
+              "evidence": "verified_render_receipt",
+          }], material
+          assert material["render_verified_fallbacks"] == [{
+              "organ": "surface.anisotropy",
+              "fallback": "directional_roughness",
+              "evidence": "verified_render_receipt",
+          }], material
+          host = material["host_verification"]
+          assert host["status"] == "PASS_SUPPORTED_AND_FALLBACKS", host
+          assert host["evidence"] == "verified_render_receipt", host
+          assert material["status"] == "HOLD_PARTIAL_BINDING_AFTER_HOST_VERIFICATION", material
+          structural = json.loads((root / "structural-inspection.json").read_text())
+          assert structural["status"] == "PASS", structural
+          print(json.dumps(material, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: avatar-blueprint-material-proof
+          path: /tmp/axm-avatar-blueprint-proof
+          if-no-files-found: error

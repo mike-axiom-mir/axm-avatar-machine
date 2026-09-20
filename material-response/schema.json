@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "axm-material-response",
+  "title": "AXM material response organ and pack",
+  "description": "Shape check only. Renderer evidence is host-specific.",
+  "oneOf": [
+    { "type": "object", "required": ["format", "id", "evidence"], "properties": {
+      "format": { "const": "axm-material-response-organ" },
+      "id": { "type": "string", "pattern": "^surface\\.[a-z_]+$" },
+      "evidence": { "const": "declared_contract_match_not_tested" }
+    } },
+    { "type": "object", "required": ["format", "families"], "properties": {
+      "format": { "const": "axm-material-response-pack" },
+      "families": { "type": "array" }
+    } }
+  ]
+}
