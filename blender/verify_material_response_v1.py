@@ -237,8 +237,8 @@ def run_verification(output_path):
     breakup_response = {
         "roughness": 0.55,
         "breakup": {
-            "roughness_variation": 0.28,
-            "color_variation": 0.14,
+            "roughness_variation": 0.36,
+            "color_variation": 0.22,
             "scale_mm": 40.0,
             "octaves": 3,
             "seed": 17,

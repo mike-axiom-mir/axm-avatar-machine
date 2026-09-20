@@ -67,9 +67,11 @@ jobs:
           assert (width, height) == (900, 900), (width, height)
           receipt = json.loads((root / "build-receipt.json").read_text())
           material = receipt["material_response"]
-          assert set(["surface.breakup", "surface.sheen", "surface.coat", "surface.anisotropy"]).issubset(
-              set(material["bound_not_render_verified_organs"])
-          ), material
+          assert set(material["bound_not_render_verified_organs"]) == {
+              "surface.breakup", "surface.sheen", "surface.coat"
+          }, material
+          held = {item["organ"]: item["reason"] for item in material["held_organs"]}
+          assert held["surface.anisotropy"] == "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED", material
           assert set(material["render_verified_organs"]) == {
               "surface.breakup", "surface.sheen", "surface.coat"
           }, material

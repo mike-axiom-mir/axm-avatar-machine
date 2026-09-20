@@ -453,12 +453,23 @@ def main():
     bound_response_organs = sorted({
         organ for receipt in response_binding_receipts for organ in receipt.get("bound_organs", [])
     })
-    held_response_organs = [
-        item for receipt in response_binding_receipts for item in receipt.get("held_organs", [])
-    ]
-    fallback_response_organs = [
-        item for receipt in response_binding_receipts for item in receipt.get("fallbacks", [])
-    ]
+    held_response_organs = []
+    seen_holds = set()
+    for receipt in response_binding_receipts:
+        for item in receipt.get("held_organs", []):
+            key = (item.get("organ"), item.get("reason"))
+            if key not in seen_holds:
+                held_response_organs.append(item)
+                seen_holds.add(key)
+
+    fallback_response_organs = []
+    seen_fallbacks = set()
+    for receipt in response_binding_receipts:
+        for item in receipt.get("fallbacks", []):
+            key = (item.get("organ"), item.get("fallback"), item.get("evidence"))
+            if key not in seen_fallbacks:
+                fallback_response_organs.append(item)
+                seen_fallbacks.add(key)
     verified_response_organs = sorted(material_verification.get("verified_organs", []))
     verified_response_fallbacks = material_verification.get("verified_fallbacks", [])
     material_response_status = "PASS_NO_ACTIVE_ORGANS"
