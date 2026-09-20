@@ -71,6 +71,9 @@ def build_blueprint(
         json.dumps(inspection, indent=2) + "\n", encoding="utf-8"
     )
     builder_receipt = json.loads((output / "build-receipt.json").read_text(encoding="utf-8"))
+    material_response = builder_receipt.get(
+        "material_response", {"status": "PASS_NO_ACTIVE_ORGANS", "active_organs": []}
+    )
     receipt = {
         "schema": "axm.avatar.blueprint-run-receipt/v1",
         "blueprint_schema": blueprint["schema"],
@@ -86,11 +89,17 @@ def build_blueprint(
         "creator_parts_retained": True,
         "reference_interpretation_dependency": False,
         "aesthetic_acceptance": "NOT_PERFORMED",
+        "material_response": material_response,
         "elapsed_seconds": round(time.time() - started, 3),
-        "status": "PASS" if inspection["status"] == "PASS" else "FAIL",
+        "status": (
+            "FAIL" if inspection["status"] != "PASS"
+            else "HOLD" if material_response.get("status", "").startswith("HOLD_")
+            else "PASS"
+        ),
         "truth": (
             "PASS means the bounded blueprint compiled and the exported GLB decoded structurally. "
-            "It does not mean visual quality or likeness was automatically accepted."
+            "HOLD means structural output exists but requested material-response organ behavior is not yet "
+            "bound/verified in the generic Blender host. Neither state is automatic aesthetic or likeness acceptance."
         ),
         "builder_receipt": builder_receipt,
     }

@@ -7,6 +7,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .material_response import validate_surface_selection, resolve_surface_selection
+
 BLUEPRINT_SCHEMA = "axm.avatar.blueprint/v1"
 SCENE_PLAN_SCHEMA = "axm.avatar.scene-plan/v1"
 COMPILER_VERSION = "doll-blueprint-v1"
@@ -123,6 +125,18 @@ def validate_blueprint(value: Any) -> dict[str, Any]:
             key: _hex_color(palette.get(key), f"characters[{index}].palette.{key}")
             for key in ("skin", "primary", "secondary", "hair", "shoes")
         }
+        surface_raw = char.get("surface_families", {})
+        if not isinstance(surface_raw, dict) or set(surface_raw) - set(normalized_palette):
+            raise BlueprintError(
+                f"characters[{index}].surface_families may only name {sorted(normalized_palette)}"
+            )
+        try:
+            normalized_surfaces = {
+                role: validate_surface_selection(selection)
+                for role, selection in surface_raw.items()
+            }
+        except ValueError as exc:
+            raise BlueprintError(f"characters[{index}].surface_families: {exc}") from exc
 
         features = _require_dict(char.get("features"), f"characters[{index}].features")
         normalized_features = {
@@ -150,6 +164,7 @@ def validate_blueprint(value: Any) -> dict[str, Any]:
             "id": char_id,
             "proportions": normalized_proportions,
             "palette": normalized_palette,
+            "surface_families": normalized_surfaces,
             "features": normalized_features,
             "wardrobe": normalized_wardrobe,
             "position": _position(char.get("position", [index * 1.8, 0, 0]), f"characters[{index}].position"),
@@ -215,12 +230,26 @@ def _material_table(blueprint: dict[str, Any]) -> list[dict[str, Any]]:
                 m, r = 0.0, max(0.38, roughness)
             elif role == "shoes":
                 m, r = min(0.25, metallic + 0.08), min(0.6, roughness + 0.08)
-            result.append({
+            material = {
                 "id": f"{cid}:{role}",
                 "color": color,
                 "metallic": round(m, 4),
                 "roughness": round(r, 4),
-            })
+            }
+            selection = char.get("surface_families", {}).get(role)
+            if selection is not None:
+                response = resolve_surface_selection(selection, color)
+                material["response_family"] = response["family"]
+                material["response_variant"] = response["variant"]
+                material["response"] = response["response"]
+                material["active_organs"] = response["active_organs"]
+                material["response_evidence"] = response["evidence"]
+                material["response_renderer_binding"] = response["renderer_binding"]
+                material["metallic"] = round(float(response["response"].get("metallic", material["metallic"])), 4)
+                material["roughness"] = round(float(response["response"].get("roughness", material["roughness"])), 4)
+                if "specular" in response["response"]:
+                    material["specular"] = round(float(response["response"]["specular"]), 4)
+            result.append(material)
         result.append({"id": f"{cid}:eye", "color": "#f5f5f2", "metallic": 0.0, "roughness": 0.35})
         result.append({"id": f"{cid}:pupil", "color": "#171717", "metallic": 0.0, "roughness": 0.5})
         result.append({"id": f"{cid}:mouth", "color": "#6f2735", "metallic": 0.0, "roughness": 0.5})

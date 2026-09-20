@@ -35,3 +35,8 @@ where = ["src"]
   "profiles/doll/odd-shift-duo/animation_manifest.json",
   "profiles/doll/odd-shift-duo/VISUAL_CONTRACT.md",
 ]
+"share/axm-avatar-machine/material-response" = [
+  "material-response/pack.json",
+  "material-response/organs.json",
+  "material-response/schema.json",
+]

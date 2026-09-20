@@ -46,6 +46,14 @@ def make_material(spec):
     bsdf.inputs["Base Color"].default_value = rgba(spec["color"])
     bsdf.inputs["Metallic"].default_value = float(spec["metallic"])
     bsdf.inputs["Roughness"].default_value = float(spec["roughness"])
+    if "specular" in spec and bsdf.inputs.get("Specular IOR Level") is not None:
+        bsdf.inputs["Specular IOR Level"].default_value = float(spec["specular"])
+    if spec.get("response_family"):
+        material["axm_response_family"] = spec["response_family"]
+        material["axm_response_renderer_binding"] = spec.get(
+            "response_renderer_binding", "HOLD_BLUEPRINT_BLENDER_ORGANS_NOT_BOUND"
+        )
+        material["axm_active_organs"] = json.dumps(spec.get("active_organs", []), sort_keys=True)
     return material
 
 
@@ -230,6 +238,14 @@ def main():
     )
     bpy.ops.object.select_all(action="DESELECT")
     bpy.ops.render.render(write_still=True)
+    response_materials = [spec for spec in plan["materials"] if spec.get("response_family")]
+    active_response_organs = sorted({
+        organ for spec in response_materials for organ in spec.get("active_organs", [])
+    })
+    material_response_status = (
+        "HOLD_BLUEPRINT_BLENDER_ORGANS_NOT_BOUND" if active_response_organs
+        else "PASS_NO_ACTIVE_ORGANS"
+    )
     receipt = {
         "schema": "axm.avatar.blueprint-build-receipt/v1",
         "plan_sha256": plan["plan_sha256"],
@@ -239,7 +255,17 @@ def main():
         "materials": len(plan["materials"]),
         "animation_keys": len(plan["animation"]),
         "outputs": ["Blueprint-Avatar.blend", "Blueprint-Avatar.glb", "Blueprint-Avatar-Poster.png"],
-        "status": "BUILT_NOT_AESTHETICALLY_ACCEPTED",
+        "material_response": {
+            "selected_materials": len(response_materials),
+            "active_organs": active_response_organs,
+            "base_scalar_projection": True,
+            "organ_behavior_bound": False,
+            "status": material_response_status,
+        },
+        "status": (
+            "BUILT_WITH_MATERIAL_RESPONSE_HOLD_NOT_AESTHETICALLY_ACCEPTED"
+            if active_response_organs else "BUILT_NOT_AESTHETICALLY_ACCEPTED"
+        ),
     }
     (out / "build-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(receipt, indent=2))

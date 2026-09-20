@@ -9,6 +9,7 @@ from .blueprint import compile_blueprint_file, load_blueprint
 from .blueprint_pipeline import build_blueprint
 from .glb import inspect_glb
 from .interpretation import resolve_interpretation, write_reference_packet
+from .material_response import material_response_catalog, resolve_material_response
 from .pipeline import run_pipeline
 from .profile import load_profile
 
@@ -18,6 +19,10 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
 
     commands.add_parser("profile", help="show the implemented recovered Doll Profile v1")
+    commands.add_parser("material-catalog", help="show available surface-response families and organ evidence")
+    material = commands.add_parser("material-response", help="resolve one named response family without claiming renderer binding")
+    material.add_argument("family")
+    material.add_argument("--variant")
     inspect = commands.add_parser("inspect-glb", help="decode GLB structure without Blender")
     inspect.add_argument("path")
 
@@ -71,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "profile":
         value = load_profile()
+    elif args.command == "material-catalog":
+        value = material_response_catalog()
+    elif args.command == "material-response":
+        value = resolve_material_response(args.family, variant=args.variant)
     elif args.command == "inspect-glb":
         value = inspect_glb(args.path)
     elif args.command == "build":

@@ -76,6 +76,20 @@ axm-avatar interpret-reference   work/reference-packet/reference-packet.json   w
 image pixels. With no human response or configured adapter, interpretation remains
 an explicit hold. This is not a native automatic photo-to-avatar claim.
 
+## Surface response intent
+
+Avatar Blueprint v1 can optionally name a surface-response family for any palette role through `surface_families`. The imported response pack contains 13 families built from eight reusable behaviors including living-skin subsurface, cloth sheen, anisotropy, coat, breakup, transmission, iridescence and placed wear.
+
+The compiler preserves these responses in the deterministic scene plan and keeps the avatar palette/base color authoritative. The current generic Blender builder projects base scalar values such as roughness/metallic/specular, but **does not yet claim the organ behavior is bound**. Any active response organs therefore make the build receipt `HOLD_BLUEPRINT_BLENDER_ORGANS_NOT_BOUND` until a Blender host earns its own render receipts.
+
+The recovered Odd Shift Doll Profile v1 remains untouched.
+
+```bash
+axm-avatar material-catalog
+axm-avatar material-response skin-living
+axm-avatar compile-blueprint examples/blueprint-doll-pair-material-response-v1.json /tmp/material-scene-plan.json
+```
+
 ## Creator-parts / growth truth
 
 Generated images, videos and GLBs are secondary realizations. Successful runs
