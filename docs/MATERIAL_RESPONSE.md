@@ -67,3 +67,9 @@ Avatar Machine now binds the EEVEE-supported core of `surface.subsurface`:
 Blender 4.3 documents Random Walk skin methods, subsurface IOR and subsurface anisotropy as Cycles-only. The pack's separate subsurface `tint` also has no separate Principled EEVEE socket while Avatar Machine keeps the Blueprint palette authoritative. Therefore skin-living remains partially held as `HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE`.
 
 The Blender verifier measures the implemented SSS core under strong backlighting. A successful receipt proves visible Burley weight/radius/scale behavior in the named EEVEE probe only; it does not upgrade the unmapped tint field or claim Cycles Random Walk skin equivalence.
+
+## Subsurface probe geometry correction
+
+The first EEVEE subsurface probe used a metre-scale sphere against millimetre-scale scattering distances and correctly failed the visual threshold. That was a poor capability stimulus, not evidence that the socket binding itself was absent.
+
+The verification scene now uses a thin backlit shell geometry and a deliberately larger RGB scattering radius only for the isolated host-capability probe. The actual `skin-living` family values remain unchanged. This keeps the test strict while making the physical effect resolvable: the probe asks whether EEVEE Burley SSS can visibly carry backlight through a thin flesh-like form, not whether a full-body metre-scale sphere glows.

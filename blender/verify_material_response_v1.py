@@ -345,13 +345,22 @@ def run_verification(output_path):
 
     # Subsurface core: EEVEE Christensen-Burley weight/radius/scale.
     # The pack's separate tint field stays a named partial-binding HOLD.
-    _set_probe_lighting(45.0, 0.0, 2200.0)
+    _set_probe_lighting(12.0, 0.0, 3200.0)
+    probe_world = scene.world.node_tree.nodes.get("Background")
+    previous_world_strength = float(probe_world.inputs["Strength"].default_value)
+    previous_scale = tuple(float(v) for v in sphere.scale)
+    previous_back_size = float(bpy.data.objects["AXM Probe Back"].data.size)
+    probe_world.inputs["Strength"].default_value = 0.0
+    sphere.scale = (1.0, 0.10, 1.0)
+    bpy.data.objects["AXM Probe Back"].data.size = 1.0
+    bpy.context.view_layer.update()
+
     subsurface_base = {"color": "#d5a080", "metallic": 0.0, "roughness": 0.52}
     subsurface_response = {
         "roughness": 0.52,
         "subsurface": {
             "weight": 1.0,
-            "radius_mm": [80.0, 30.0, 15.0],
+            "radius_mm": [180.0, 65.0, 25.0],
             "tint": [0.9, 0.3, 0.2],
         },
     }
@@ -381,7 +390,11 @@ def run_verification(output_path):
         "render_hashes": [ss_on["png_sha256"], ss_off["png_sha256"]],
         "truth": "This verifies EEVEE Burley weight/radius/scale only; the pack's separate tint field remains unmapped.",
     }
+    sphere.scale = previous_scale
+    bpy.data.objects["AXM Probe Back"].data.size = previous_back_size
+    probe_world.inputs["Strength"].default_value = previous_world_strength
     _set_probe_lighting(900.0, 280.0, 850.0)
+    bpy.context.view_layer.update()
 
     # EEVEE 4.3 does not support true Principled anisotropy.
     # Verify the explicit donor-declared directional-roughness fallback separately.
