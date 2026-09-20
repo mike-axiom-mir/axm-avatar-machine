@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import bpy
+from PIL import Image
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -68,8 +69,8 @@ def _setup_probe_scene():
     reset_scene()
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE_NEXT"
-    scene.render.resolution_x = 192
-    scene.render.resolution_y = 192
+    scene.render.resolution_x = 96
+    scene.render.resolution_y = 96
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
@@ -117,11 +118,14 @@ def _render_probe(scene, sphere, spec, output_path):
     scene.render.filepath = str(output_path)
     bpy.context.view_layer.update()
     bpy.ops.render.render(write_still=True)
-    image = bpy.data.images.get("Render Result")
-    pixels = tuple(float(value) for value in image.pixels[:])
+    with Image.open(output_path) as image:
+        rgba = image.convert("RGBA")
+        width, height = rgba.size
+        raw = list(rgba.getdata())
+    pixels = tuple(channel / 255.0 for pixel in raw for channel in pixel)
     return {
-        "width": scene.render.resolution_x,
-        "height": scene.render.resolution_y,
+        "width": width,
+        "height": height,
         "pixels": pixels,
         "binding": bind_receipt,
         "png_sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
@@ -343,7 +347,7 @@ def run_verification(output_path):
         "host": {
             "renderer": "BLENDER_EEVEE_NEXT",
             "bpy_version": bpy.app.version_string,
-            "resolution": [192, 192],
+            "resolution": [96, 96],
         },
         "verified_organs": verified,
         "cases": cases,

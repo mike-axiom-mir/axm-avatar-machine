@@ -13,7 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 visual-regression = ["Pillow>=12,<13"]
-authoring = ["bpy==4.3.0", "numpy==1.26.4"]
+authoring = ["bpy==4.3.0", "numpy==1.26.4", "Pillow>=12,<13"]
 
 [project.scripts]
 axm-avatar = "axm_avatar_machine.cli:main"
