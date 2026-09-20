@@ -43,6 +43,7 @@ def build_blueprint(
 
     root = machine_root()
     builder = root / "blender" / "build_blueprint_v1.py"
+    material_verifier = root / "blender" / "verify_material_response_v1.py"
     runtime = resolve_authoring_runtime(blender, bpy_python)
     executable = runtime["executable"]
 
@@ -51,6 +52,7 @@ def build_blueprint(
     source.mkdir(parents=True)
     shutil.copyfile(blueprint_path, parts / "request-blueprint.json")
     shutil.copyfile(builder, source / builder.name)
+    shutil.copyfile(material_verifier, source / material_verifier.name)
     shutil.copyfile(root / "src" / "axm_avatar_machine" / "blueprint.py", source / "blueprint_compiler.py")
     shutil.copyfile(output / "scene-plan.json", parts / "scene-plan.json")
 
@@ -66,14 +68,42 @@ def build_blueprint(
 
     started = time.time()
     _run(command, logs / "build.stdout.txt", logs / "build.stderr.txt", timeout_seconds)
+
+    material_proof = output / "material-response-proof"
+    if runtime["kind"] == "blender-cli":
+        material_command = [
+            executable, "--background", "--factory-startup", "--python-exit-code", "1",
+            "--python", str(material_verifier), "--", "--output", str(material_proof),
+        ]
+    else:
+        material_command = [executable, str(material_verifier), "--output", str(material_proof)]
+    _run(
+        material_command,
+        logs / "material-response.stdout.txt",
+        logs / "material-response.stderr.txt",
+        timeout_seconds,
+    )
+    material_verification = json.loads((material_proof / "receipt.json").read_text(encoding="utf-8"))
+
     inspection = inspect_glb(output / "Blueprint-Avatar.glb")
     (output / "structural-inspection.json").write_text(
         json.dumps(inspection, indent=2) + "\n", encoding="utf-8"
     )
     builder_receipt = json.loads((output / "build-receipt.json").read_text(encoding="utf-8"))
-    material_response = builder_receipt.get(
+    material_response = dict(builder_receipt.get(
         "material_response", {"status": "PASS_NO_ACTIVE_ORGANS", "active_organs": []}
-    )
+    ))
+    material_response["render_verified_organs"] = material_verification["verified_organs"]
+    material_response["host_verification"] = material_verification
+    held = material_response.get("held_organs", [])
+    bound = set(material_response.get("bound_not_render_verified_organs", []))
+    verified = set(material_verification.get("verified_organs", []))
+    if held:
+        material_response["status"] = "HOLD_PARTIAL_BINDING_AFTER_HOST_VERIFICATION"
+    elif bound and not bound.issubset(verified):
+        material_response["status"] = "HOLD_RENDER_VERIFICATION_INCOMPLETE"
+    elif bound:
+        material_response["status"] = "PASS_BOUND_ORGANS_HOST_VERIFIED"
     receipt = {
         "schema": "axm.avatar.blueprint-run-receipt/v1",
         "blueprint_schema": blueprint["schema"],
@@ -84,6 +114,10 @@ def build_blueprint(
         "appearance_signature": plan["appearance_signature"],
         "runtime": runtime,
         "builder": {"path": "blender/build_blueprint_v1.py", "sha256": sha256(builder)},
+        "material_verifier": {
+            "path": "blender/verify_material_response_v1.py",
+            "sha256": sha256(material_verifier),
+        },
         "structural_status": inspection["status"],
         "deformation": inspection["deformation"],
         "creator_parts_retained": True,

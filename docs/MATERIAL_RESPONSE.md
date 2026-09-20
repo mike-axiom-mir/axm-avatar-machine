@@ -33,3 +33,16 @@ Grain/custom-vector anisotropy remains HOLD until a mesh-owned direction field e
 The CI now also runs a real Python 3.11 + `bpy==4.3.0` generic Blueprint build, checks the 900×900 poster, editable blend, GLB, structural inspection and host binding receipts, and uploads the proof pack as a workflow artifact. This raises the generic path above syntax-only evidence without pretending the visual organ tests have passed.
 
 Zero-weight organ controls compile to an empty binding plan: no response sockets or response nodes are introduced by the organ binder.
+
+## Blender cheap-four host verification
+
+The cheap-four binder now has an independent EEVEE 4.3 pixel verifier. It creates isolated probe spheres through the same `make_material` path used by Blueprint builds and measures rendered A/B evidence:
+
+- breakup: visible local detail relative to the same base material with the organ off, plus repeated-render determinism;
+- sheen: increased grazing-angle rim/centre response;
+- coat: a measurable increase in the high-end highlight response over the rough base;
+- anisotropy: measurable difference from isotropic shading and measurable response to a quarter-turn of the authored anisotropy orientation.
+
+The receipt is written to `material-response-proof/receipt.json` and its proof PNGs remain in that directory. `verified_render_receipt` is deliberately scoped to these Blender/EEVEE probe scenes. It does not claim physical accuracy, numerical equivalence with the donor reference host, aesthetic acceptance, or game-engine parity.
+
+The Blueprint run still remains HOLD whenever requested organs such as subsurface or wear layering are not yet bound, even if all cheap-four probes pass.

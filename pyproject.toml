@@ -27,6 +27,7 @@ where = ["src"]
   "blender/render_doll_v1.py",
   "blender/verify_doll_v1.py",
   "blender/build_blueprint_v1.py",
+  "blender/verify_material_response_v1.py",
 ]
 "share/axm-avatar-machine/profiles/doll/odd-shift-duo" = [
   "profiles/doll/odd-shift-duo/profile.json",

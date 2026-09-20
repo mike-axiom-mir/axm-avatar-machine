@@ -57,7 +57,8 @@ jobs:
           from pathlib import Path
           root = Path("/tmp/axm-avatar-blueprint-proof")
           for name in ["Blueprint-Avatar.blend", "Blueprint-Avatar.glb", "Blueprint-Avatar-Poster.png",
-                       "structural-inspection.json", "blueprint-run-receipt.json", "build-receipt.json"]:
+                       "structural-inspection.json", "blueprint-run-receipt.json", "build-receipt.json",
+                       "material-response-proof/receipt.json"]:
               path = root / name
               assert path.is_file() and path.stat().st_size > 0, name
           png = (root / "Blueprint-Avatar-Poster.png").read_bytes()
@@ -69,8 +70,13 @@ jobs:
           assert set(["surface.breakup", "surface.sheen", "surface.coat", "surface.anisotropy"]).issubset(
               set(material["bound_not_render_verified_organs"])
           ), material
-          assert material["render_verified_organs"] == []
-          assert material["status"].startswith("HOLD_")
+          assert set(material["render_verified_organs"]) == {
+              "surface.breakup", "surface.sheen", "surface.coat", "surface.anisotropy"
+          }, material
+          host = material["host_verification"]
+          assert host["status"] == "PASS", host
+          assert host["evidence"] == "verified_render_receipt", host
+          assert material["status"] == "HOLD_PARTIAL_BINDING_AFTER_HOST_VERIFICATION", material
           structural = json.loads((root / "structural-inspection.json").read_text())
           assert structural["status"] == "PASS", structural
           print(json.dumps(material, indent=2))
