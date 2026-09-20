@@ -30,6 +30,7 @@ ORGAN_IDS = (
     "surface.breakup",
     "surface.sheen",
     "surface.coat",
+    "surface.subsurface",
     "surface.anisotropy",
 )
 
@@ -96,13 +97,14 @@ def _setup_probe_scene():
     scene.camera = camera
 
     lights = [
-        ((-2.4, -3.2, 2.8), 900.0, 2.7),
-        ((2.8, -1.0, 1.1), 280.0, 2.2),
-        ((0.0, 2.4, 2.0), 850.0, 2.0),
+        ("AXM Probe Key", (-2.4, -3.2, 2.8), 900.0, 2.7),
+        ("AXM Probe Fill", (2.8, -1.0, 1.1), 280.0, 2.2),
+        ("AXM Probe Back", (0.0, 2.4, 2.0), 850.0, 2.0),
     ]
-    for location, energy, size in lights:
+    for name, location, energy, size in lights:
         bpy.ops.object.light_add(type="AREA", location=location)
         light = bpy.context.object
+        light.name = name
         light.data.energy = energy
         light.data.shape = "DISK"
         light.data.size = size
@@ -203,6 +205,37 @@ def _rim_center_ratio(frame):
         elif 0.76 <= radius <= 0.93:
             rim.append(lum)
     return (sum(rim) / max(len(rim), 1)) / max(sum(center) / max(len(center), 1), 1e-9)
+
+
+def _rim_mean_rgb(frame):
+    rows = _samples(frame)
+    xs = [row[0] for row in rows]
+    ys = [row[1] for row in rows]
+    cx = (min(xs) + max(xs)) * 0.5
+    cy = (min(ys) + max(ys)) * 0.5
+    rx = max((max(xs) - min(xs)) * 0.5, 1.0)
+    ry = max((max(ys) - min(ys)) * 0.5, 1.0)
+    rim = []
+    for x, y, rgb, _lum in rows:
+        radius = math.sqrt(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2)
+        if 0.72 <= radius <= 0.94:
+            rim.append(rgb)
+    if not rim:
+        raise RuntimeError("subsurface probe has no rim samples")
+    return tuple(sum(pixel[channel] for pixel in rim) / len(rim) for channel in range(3))
+
+
+def _set_probe_lighting(key, fill, back):
+    for name, energy in (
+        ("AXM Probe Key", key),
+        ("AXM Probe Fill", fill),
+        ("AXM Probe Back", back),
+    ):
+        obj = bpy.data.objects.get(name)
+        if obj is None or not hasattr(obj.data, "energy"):
+            raise RuntimeError(f"probe light missing: {name}")
+        obj.data.energy = float(energy)
+    bpy.context.view_layer.update()
 
 
 def _percentile_luma(frame, fraction):
@@ -310,6 +343,46 @@ def run_verification(output_path):
         "criterion": "delta>0.001 and 99.5th-percentile highlight gain>1.01",
     }
 
+    # Subsurface core: EEVEE Christensen-Burley weight/radius/scale.
+    # The pack's separate tint field stays a named partial-binding HOLD.
+    _set_probe_lighting(45.0, 0.0, 2200.0)
+    subsurface_base = {"color": "#d5a080", "metallic": 0.0, "roughness": 0.52}
+    subsurface_response = {
+        "roughness": 0.52,
+        "subsurface": {
+            "weight": 1.0,
+            "radius_mm": [80.0, 30.0, 15.0],
+            "tint": [0.9, 0.3, 0.2],
+        },
+    }
+    ss_on, ss_off = _render_pair(
+        scene, sphere, output, "subsurface-core", subsurface_base, subsurface_response
+    )
+    ss_delta = _mean_abs_delta(ss_on, ss_off)
+    ss_rim_on, ss_rim_off = _rim_mean_rgb(ss_on), _rim_mean_rgb(ss_off)
+    ss_luma_on, ss_luma_off = _luma(ss_rim_on), _luma(ss_rim_off)
+    ss_luma_gain = ss_luma_on / max(ss_luma_off, 1e-9)
+    ss_rb_on = ss_rim_on[0] / max(ss_rim_on[2], 1e-9)
+    ss_rb_off = ss_rim_off[0] / max(ss_rim_off[2], 1e-9)
+    ss_rb_gain = ss_rb_on / max(ss_rb_off, 1e-9)
+    ss_pass = ss_delta > 0.003 and ss_luma_gain > 1.03 and ss_rb_gain > 1.01
+    cases["surface.subsurface"] = {
+        "passed": False,
+        "organ_status": "HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE",
+        "partial": {
+            "passed": ss_pass,
+            "bound_fields": ["weight", "radius_mm"],
+            "renderer_method": "BURLEY",
+            "mean_abs_rgb_delta_vs_off": ss_delta,
+            "rim_luma_gain": ss_luma_gain,
+            "rim_red_blue_gain": ss_rb_gain,
+            "criterion": "delta>0.003, rim luma gain>1.03, rim red/blue gain>1.01",
+        },
+        "render_hashes": [ss_on["png_sha256"], ss_off["png_sha256"]],
+        "truth": "This verifies EEVEE Burley weight/radius/scale only; the pack's separate tint field remains unmapped.",
+    }
+    _set_probe_lighting(900.0, 280.0, 850.0)
+
     # EEVEE 4.3 does not support true Principled anisotropy.
     # Verify the explicit donor-declared directional-roughness fallback separately.
     aniso_base = {"color": "#a9adb5", "metallic": 1.0, "roughness": 0.32}
@@ -350,6 +423,14 @@ def run_verification(output_path):
         organ for organ, result in cases.items()
         if organ != "surface.anisotropy" and result["passed"]
     )
+    verified_partial_organs = []
+    if cases["surface.subsurface"]["partial"]["passed"]:
+        verified_partial_organs.append({
+            "organ": "surface.subsurface",
+            "bound_fields": ["weight", "radius_mm"],
+            "renderer_method": "BURLEY",
+            "evidence": "verified_render_receipt",
+        })
     verified_fallbacks = []
     if cases["surface.anisotropy"]["fallback"]["passed"]:
         verified_fallbacks.append({
@@ -360,7 +441,7 @@ def run_verification(output_path):
     expected_direct = {"surface.breakup", "surface.sheen", "surface.coat"}
     status = (
         "PASS_SUPPORTED_AND_FALLBACKS"
-        if set(verified) == expected_direct and verified_fallbacks
+        if set(verified) == expected_direct and verified_partial_organs and verified_fallbacks
         else "HOLD"
     )
     receipt = {
@@ -371,6 +452,7 @@ def run_verification(output_path):
             "resolution": [96, 96],
         },
         "verified_organs": verified,
+        "verified_partial_organs": verified_partial_organs,
         "verified_fallbacks": verified_fallbacks,
         "cases": cases,
         "status": status,
@@ -380,7 +462,7 @@ def run_verification(output_path):
             else "declared_contract_match_not_tested"
         ),
         "scope": (
-            "These measurements prove direct breakup/sheen/coat pixel effects and the anisotropy fallback in the Avatar Machine Blender 4.3 EEVEE probe scenes only. "
+            "These measurements prove direct breakup/sheen/coat pixel effects, EEVEE Burley subsurface core behavior, and the anisotropy fallback in the Avatar Machine Blender 4.3 EEVEE probe scenes only. "
             "They do not prove physical correctness, Opus/reference-host numerical equivalence, artistic quality, "
             "or parity in exported game-engine materials."
         ),

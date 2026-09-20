@@ -217,11 +217,52 @@ def compile_blender_response_binding(
     requested = active_organs(response)
     sockets: dict[str, float] = {}
     colors: dict[str, list[float]] = {}
+    vectors: dict[str, list[float]] = {}
+    shader_properties: dict[str, str] = {}
     nodes: list[dict[str, Any]] = []
     bound: list[str] = []
     held: list[dict[str, str]] = []
+    partial_bindings: list[dict[str, Any]] = []
     fallbacks: list[dict[str, Any]] = []
     approximations: list[str] = []
+
+    if "surface.subsurface" in requested:
+        value = response.get("subsurface", {})
+        radius_mm = value.get("radius_mm", [1.0, 1.0, 1.0])
+        if (
+            not isinstance(radius_mm, list)
+            or len(radius_mm) != 3
+            or any(isinstance(v, bool) or not isinstance(v, (int, float)) or float(v) <= 0 for v in radius_mm)
+        ):
+            raise MaterialResponseHold("subsurface.radius_mm must contain three positive numbers")
+        radius_mm = [float(v) for v in radius_mm]
+        max_radius_mm = max(radius_mm)
+        sockets["Subsurface Weight"] = max(0.0, min(1.0, float(value.get("weight", 0))))
+        sockets["Subsurface Scale"] = max_radius_mm / 1000.0
+        vectors["Subsurface Radius"] = [round(v / max_radius_mm, 8) for v in radius_mm]
+        shader_properties["subsurface_method"] = "BURLEY"
+
+        held_fields = []
+        if value.get("tint") is not None:
+            held_fields.append("tint")
+            held.append({
+                "organ": "surface.subsurface",
+                "reason": "HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE",
+            })
+        partial_bindings.append({
+            "organ": "surface.subsurface",
+            "bound_fields": ["weight", "radius_mm"],
+            "held_fields": held_fields,
+            "renderer_method": "BURLEY",
+            "scale_m": sockets["Subsurface Scale"],
+            "radius_ratio": vectors["Subsurface Radius"],
+        })
+        if not held_fields:
+            bound.append("surface.subsurface")
+        approximations.append(
+            "EEVEE uses Christensen-Burley subsurface scattering here. Blender documents Random Walk, "
+            "subsurface IOR, and subsurface anisotropy as Cycles-only."
+        )
 
     if "surface.sheen" in requested:
         value = response.get("sheen", {})
@@ -312,7 +353,7 @@ def compile_blender_response_binding(
             bound.append("surface.anisotropy")
 
     for organ in requested:
-        if organ in CHEAP_FOUR:
+        if organ in CHEAP_FOUR or organ == "surface.subsurface":
             continue
         held.append({"organ": organ, "reason": "HOLD_ORGAN_NOT_BOUND_IN_BLUEPRINT_BLENDER_V1"})
 
@@ -329,12 +370,16 @@ def compile_blender_response_binding(
         "bound_organs": sorted(set(bound)),
         "held_organs": held,
         "fallbacks": fallbacks,
+        "partial_bindings": partial_bindings,
         "principled_sockets": sockets,
         "principled_colors": colors,
+        "principled_vectors": vectors,
+        "shader_properties": shader_properties,
         "node_plans": nodes,
         "approximations": approximations,
         "evidence": EVIDENCE,
         "render_verified_organs": [],
+        "render_verified_partial_organs": [],
         "render_verified_fallbacks": [],
         "status": status,
         "truth": (

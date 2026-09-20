@@ -72,9 +72,16 @@ jobs:
           }, material
           held = {item["organ"]: item["reason"] for item in material["held_organs"]}
           assert held["surface.anisotropy"] == "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED", material
+          assert held["surface.subsurface"] == "HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE", material
           assert set(material["render_verified_organs"]) == {
               "surface.breakup", "surface.sheen", "surface.coat"
           }, material
+          assert material["render_verified_partial_organs"] == [{
+              "organ": "surface.subsurface",
+              "bound_fields": ["weight", "radius_mm"],
+              "renderer_method": "BURLEY",
+              "evidence": "verified_render_receipt",
+          }], material
           assert material["render_verified_fallbacks"] == [{
               "organ": "surface.anisotropy",
               "fallback": "directional_roughness",

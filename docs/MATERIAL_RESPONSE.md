@@ -54,3 +54,16 @@ The Blender 4.3 manual marks Principled anisotropy as Cycles-only and EEVEE anis
 For EEVEE, the requested anisotropy organ stays `HOLD_EEVEE_ANISOTROPY_UNSUPPORTED`. The builder may apply the Opus pack's declared fallback — directionally stretched roughness — as a separately named `directional_roughness` fallback. Pixel evidence for that fallback is stored separately from `render_verified_organs`.
 
 The breakup probe also uses a resolvable authored 40 mm scale for the host capability test. This proves the breakup node path can produce deterministic visible roughness/color variation; it does not claim that pore-scale 1–3 mm breakup must be visibly resolved in a 96×96 or full-body render.
+
+## EEVEE subsurface core
+
+Avatar Machine now binds the EEVEE-supported core of `surface.subsurface`:
+
+- `Subsurface Weight`;
+- per-channel `Subsurface Radius`, normalized from the pack's RGB millimetre distances;
+- `Subsurface Scale`, set from the largest requested radius in metres;
+- Principled `BURLEY` / Christensen-Burley method.
+
+Blender 4.3 documents Random Walk skin methods, subsurface IOR and subsurface anisotropy as Cycles-only. The pack's separate subsurface `tint` also has no separate Principled EEVEE socket while Avatar Machine keeps the Blueprint palette authoritative. Therefore skin-living remains partially held as `HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE`.
+
+The Blender verifier measures the implemented SSS core under strong backlighting. A successful receipt proves visible Burley weight/radius/scale behavior in the named EEVEE probe only; it does not upgrade the unmapped tint field or claim Cycles Random Walk skin equivalence.

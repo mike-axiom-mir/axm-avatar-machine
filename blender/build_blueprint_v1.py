@@ -193,6 +193,15 @@ def apply_response_binding(material, bsdf, spec):
     for name, value in plan.get("principled_colors", {}).items():
         _socket(bsdf, name).default_value = _rgb4(value)
         applied.append(name)
+    for name, value in plan.get("principled_vectors", {}).items():
+        _socket(bsdf, name).default_value = tuple(float(v) for v in value)
+        applied.append(name)
+    for name, value in plan.get("shader_properties", {}).items():
+        if name == "subsurface_method":
+            bsdf.subsurface_method = value
+            applied.append("subsurface_method")
+        else:
+            raise RuntimeError(f"unsupported response shader property {name!r}")
 
     node_names = []
     tangent_plan = next((item for item in plan.get("node_plans", []) if item.get("kind") == "radial-object-tangent"), None)
@@ -228,6 +237,7 @@ def apply_response_binding(material, bsdf, spec):
         "requested_organs": plan.get("requested_organs", []),
         "bound_organs": plan.get("bound_organs", []),
         "held_organs": plan.get("held_organs", []),
+        "partial_bindings": plan.get("partial_bindings", []),
         "fallbacks": plan.get("fallbacks", []),
         "applied_sockets": sorted(applied),
         "created_nodes": node_names,
@@ -470,7 +480,22 @@ def main():
             if key not in seen_fallbacks:
                 fallback_response_organs.append(item)
                 seen_fallbacks.add(key)
+
+    partial_response_organs = []
+    seen_partial = set()
+    for receipt in response_binding_receipts:
+        for item in receipt.get("partial_bindings", []):
+            key = (
+                item.get("organ"),
+                tuple(item.get("bound_fields", [])),
+                tuple(item.get("held_fields", [])),
+                item.get("renderer_method"),
+            )
+            if key not in seen_partial:
+                partial_response_organs.append(item)
+                seen_partial.add(key)
     verified_response_organs = sorted(material_verification.get("verified_organs", []))
+    verified_partial_response_organs = material_verification.get("verified_partial_organs", [])
     verified_response_fallbacks = material_verification.get("verified_fallbacks", [])
     material_response_status = "PASS_NO_ACTIVE_ORGANS"
     if bound_response_organs:
@@ -499,8 +524,10 @@ def main():
             "active_organs": active_response_organs,
             "bound_not_render_verified_organs": bound_response_organs,
             "held_organs": held_response_organs,
+            "partial_bindings": partial_response_organs,
             "fallbacks": fallback_response_organs,
             "render_verified_organs": verified_response_organs,
+            "render_verified_partial_organs": verified_partial_response_organs,
             "render_verified_fallbacks": verified_response_fallbacks,
             "host_verification": material_verification,
             "base_scalar_projection": True,

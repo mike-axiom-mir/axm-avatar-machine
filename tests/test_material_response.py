@@ -37,7 +37,7 @@ class MaterialResponseTests(unittest.TestCase):
         }
         self.assertEqual(active_organs(response), [])
 
-    def test_skin_cheap_three_bind_and_subsurface_stays_held(self):
+    def test_skin_binds_eevee_subsurface_core_but_holds_separate_tint(self):
         response = resolve_material_response("skin-living", color_hex="#d3a27f")["response"]
         binding = compile_blender_response_binding(response)
         self.assertEqual(
@@ -46,8 +46,17 @@ class MaterialResponseTests(unittest.TestCase):
         )
         self.assertEqual(
             binding["held_organs"],
-            [{"organ": "surface.subsurface", "reason": "HOLD_ORGAN_NOT_BOUND_IN_BLUEPRINT_BLENDER_V1"}],
+            [{"organ": "surface.subsurface", "reason": "HOLD_SUBSURFACE_TINT_UNMAPPED_IN_PRINCIPLED_EEVEE"}],
         )
+        self.assertEqual(binding["principled_sockets"]["Subsurface Weight"], 0.72)
+        self.assertAlmostEqual(binding["principled_sockets"]["Subsurface Scale"], 0.0028)
+        self.assertEqual(binding["principled_vectors"]["Subsurface Radius"], [1.0, 0.39285714, 0.25])
+        self.assertEqual(binding["shader_properties"]["subsurface_method"], "BURLEY")
+        self.assertEqual(
+            binding["partial_bindings"][0]["bound_fields"],
+            ["weight", "radius_mm"],
+        )
+        self.assertEqual(binding["partial_bindings"][0]["held_fields"], ["tint"])
         self.assertEqual(binding["status"], "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED")
 
     def test_metal_brushed_holds_true_eevee_anisotropy_and_uses_declared_fallback(self):
@@ -94,6 +103,9 @@ class MaterialResponseTests(unittest.TestCase):
         self.assertEqual(binding["bound_organs"], [])
         self.assertEqual(binding["held_organs"], [])
         self.assertEqual(binding["principled_sockets"], {})
+        self.assertEqual(binding["principled_vectors"], {})
+        self.assertEqual(binding["shader_properties"], {})
+        self.assertEqual(binding["partial_bindings"], [])
         self.assertEqual(binding["node_plans"], [])
         self.assertEqual(binding["status"], "PASS_NO_ACTIVE_ORGANS")
 
