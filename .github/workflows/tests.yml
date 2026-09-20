@@ -32,7 +32,22 @@ jobs:
         run: python -c "import bpy; assert bpy.app.version_string.startswith('4.3'); print(bpy.app.version_string)"
       - name: Build material-response Blueprint
         run: |
-          axm-avatar build-blueprint             examples/blueprint-doll-pair-material-response-v1.json             /tmp/axm-avatar-blueprint-proof             --bpy-python "$(which python)"             --timeout-seconds 900
+          set +e
+          axm-avatar build-blueprint \
+            examples/blueprint-doll-pair-material-response-v1.json \
+            /tmp/axm-avatar-blueprint-proof \
+            --bpy-python "$(which python)" \
+            --timeout-seconds 900
+          status=$?
+          if [ -f /tmp/axm-avatar-blueprint-proof/logs/build.stderr.txt ]; then
+            echo "----- retained Blender stderr -----"
+            cat /tmp/axm-avatar-blueprint-proof/logs/build.stderr.txt
+          fi
+          if [ -f /tmp/axm-avatar-blueprint-proof/logs/build.stdout.txt ]; then
+            echo "----- retained Blender stdout -----"
+            tail -n 120 /tmp/axm-avatar-blueprint-proof/logs/build.stdout.txt
+          fi
+          exit $status
       - name: Check proof pack and binding receipts
         run: |
           python - <<'PY'
@@ -59,6 +74,7 @@ jobs:
           print(json.dumps(material, indent=2))
           PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: avatar-blueprint-material-proof
           path: /tmp/axm-avatar-blueprint-proof

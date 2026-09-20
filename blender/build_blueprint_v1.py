@@ -68,7 +68,10 @@ def _bind_breakup(material, bsdf, plan, base_color, base_roughness):
     _socket(noise, "Detail").default_value = float(node_plan["detail"])
     if noise.inputs.get("W") is not None:
         noise.inputs["W"].default_value = float(node_plan["seed_w"])
-    links.new(_socket(tex, "Object"), _socket(noise, "Vector"))
+    object_output = tex.outputs.get("Object")
+    if object_output is None:
+        raise RuntimeError("ShaderNodeTexCoord Object output is missing")
+    links.new(object_output, _socket(noise, "Vector"))
 
     created = [tex.name, noise.name]
     rough_var = float(node_plan.get("roughness_variation", 0))
