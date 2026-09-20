@@ -61,7 +61,7 @@ def _response_spec(name, color, metallic, roughness, response):
     }
 
 
-def _fresh_probe_scene(spec, output_path):
+def _setup_probe_scene():
     reset_scene()
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE_NEXT"
@@ -71,7 +71,6 @@ def _fresh_probe_scene(spec, output_path):
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     scene.render.film_transparent = True
-    scene.render.filepath = str(output_path)
 
     world = bpy.data.worlds.get("AXM Material Probe World") or bpy.data.worlds.new("AXM Material Probe World")
     scene.world = world
@@ -85,8 +84,6 @@ def _fresh_probe_scene(spec, output_path):
     sphere.name = "AXM_Material_Response_Probe"
     for polygon in sphere.data.polygons:
         polygon.use_smooth = True
-    material, bind_receipt = make_material(spec)
-    sphere.data.materials.append(material)
 
     bpy.ops.object.camera_add(location=(0.0, -4.3, 0.15))
     camera = bpy.context.object
@@ -106,7 +103,16 @@ def _fresh_probe_scene(spec, output_path):
         light.data.shape = "DISK"
         light.data.size = size
         _look_at(light)
+    bpy.context.view_layer.update()
+    return scene, sphere
 
+
+def _render_probe(scene, sphere, spec, output_path):
+    material, bind_receipt = make_material(spec)
+    sphere.data.materials.clear()
+    sphere.data.materials.append(material)
+    scene.render.filepath = str(output_path)
+    bpy.context.view_layer.update()
     bpy.ops.render.render(write_still=True)
     image = bpy.data.images.get("Render Result")
     pixels = tuple(float(value) for value in image.pixels[:])
@@ -198,12 +204,16 @@ def _percentile_luma(frame, fraction):
     return values[index]
 
 
-def _render_pair(output, name, base, response):
-    on = _fresh_probe_scene(
+def _render_pair(scene, sphere, output, name, base, response):
+    on = _render_probe(
+        scene,
+        sphere,
         _response_spec(name + "-on", base["color"], base["metallic"], base["roughness"], response),
         output / (name + "-on.png"),
     )
-    off = _fresh_probe_scene(
+    off = _render_probe(
+        scene,
+        sphere,
         _base_spec(name + "-off", base["color"], base["metallic"], base["roughness"]),
         output / (name + "-off.png"),
     )
@@ -214,6 +224,7 @@ def main():
     cfg = parse_args()
     output = Path(cfg.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
+    scene, sphere = _setup_probe_scene()
     cases = {}
 
     # Breakup: visible local micro-variation and repeatability from deterministic object-space noise.
@@ -228,8 +239,10 @@ def main():
         },
     }
     breakup_base = {"color": "#777777", "metallic": 0.0, "roughness": 0.55}
-    b_on, b_off = _render_pair(output, "breakup", breakup_base, breakup_response)
-    b_repeat = _fresh_probe_scene(
+    b_on, b_off = _render_pair(scene, sphere, output, "breakup", breakup_base, breakup_response)
+    b_repeat = _render_probe(
+        scene,
+        sphere,
         _response_spec("breakup-repeat", breakup_base["color"], 0.0, 0.55, breakup_response),
         output / "breakup-repeat.png",
     )
@@ -255,7 +268,7 @@ def main():
         "sheen": {"weight": 1.0, "roughness": 0.28, "tint": [1.0, 0.82, 0.82]},
     }
     sheen_base = {"color": "#350914", "metallic": 0.0, "roughness": 0.9}
-    s_on, s_off = _render_pair(output, "sheen", sheen_base, sheen_response)
+    s_on, s_off = _render_pair(scene, sphere, output, "sheen", sheen_base, sheen_response)
     s_delta = _mean_abs_delta(s_on, s_off)
     s_ratio_on, s_ratio_off = _rim_center_ratio(s_on), _rim_center_ratio(s_off)
     s_gain = s_ratio_on / max(s_ratio_off, 1e-9)
@@ -276,7 +289,7 @@ def main():
         "clearcoat": {"weight": 1.0, "roughness": 0.03, "ior": 1.5},
     }
     coat_base = {"color": "#244a86", "metallic": 0.0, "roughness": 0.48}
-    c_on, c_off = _render_pair(output, "coat", coat_base, coat_response)
+    c_on, c_off = _render_pair(scene, sphere, output, "coat", coat_base, coat_response)
     c_delta = _mean_abs_delta(c_on, c_off)
     c_hi_on, c_hi_off = _percentile_luma(c_on, 0.995), _percentile_luma(c_off, 0.995)
     c_gain = c_hi_on / max(c_hi_off, 1e-9)
@@ -298,12 +311,14 @@ def main():
         "roughness": 0.32,
         "anisotropy": {"strength": 0.9, "direction": "tangent_u", "rotation": 0.0},
     }
-    a_on, a_off = _render_pair(output, "anisotropy", aniso_base, aniso_response)
+    a_on, a_off = _render_pair(scene, sphere, output, "anisotropy", aniso_base, aniso_response)
     rotated = {
         **aniso_response,
         "anisotropy": {"strength": 0.9, "direction": "tangent_u", "rotation": 0.25},
     }
-    a_rot = _fresh_probe_scene(
+    a_rot = _render_probe(
+        scene,
+        sphere,
         _response_spec("anisotropy-rotated", aniso_base["color"], 1.0, 0.32, rotated),
         output / "anisotropy-rotated.png",
     )
