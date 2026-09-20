@@ -50,14 +50,22 @@ class MaterialResponseTests(unittest.TestCase):
         )
         self.assertEqual(binding["status"], "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED")
 
-    def test_metal_brushed_gets_anisotropy_and_object_space_breakup_plan(self):
+    def test_metal_brushed_holds_true_eevee_anisotropy_and_uses_declared_fallback(self):
         response = resolve_material_response("metal-brushed", color_hex="#777777")["response"]
         binding = compile_blender_response_binding(response)
-        self.assertEqual(set(binding["bound_organs"]), {"surface.anisotropy", "surface.breakup"})
-        self.assertFalse(binding["held_organs"])
-        self.assertEqual(binding["principled_sockets"]["Anisotropic IOR Level"], 0.8)
-        tangent = next(item for item in binding["node_plans"] if item["kind"] == "radial-object-tangent")
-        self.assertEqual((tangent["direction_type"], tangent["axis"]), ("RADIAL", "Z"))
+        self.assertEqual(set(binding["bound_organs"]), {"surface.breakup"})
+        held = {item["organ"]: item["reason"] for item in binding["held_organs"]}
+        self.assertEqual(held["surface.anisotropy"], "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED")
+        self.assertEqual(
+            binding["fallbacks"],
+            [{
+                "organ": "surface.anisotropy",
+                "fallback": "directional_roughness",
+                "evidence": "declared_contract_match_not_tested",
+            }],
+        )
+        fallback = next(item for item in binding["node_plans"] if item["kind"] == "directional-roughness-fallback")
+        self.assertEqual(fallback["direction"], "tangent_u")
         breakup = next(item for item in binding["node_plans"] if item["kind"] == "object-space-noise-breakup")
         self.assertEqual(breakup["coordinate_space"], "OBJECT")
 
@@ -65,7 +73,7 @@ class MaterialResponseTests(unittest.TestCase):
         response = resolve_material_response("wood-oiled", color_hex="#654321")["response"]
         binding = compile_blender_response_binding(response)
         held = {item["organ"]: item["reason"] for item in binding["held_organs"]}
-        self.assertEqual(held["surface.anisotropy"], "HOLD_DIRECTION_FIELD_NOT_OWNED")
+        self.assertEqual(held["surface.anisotropy"], "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED")
         self.assertIn("surface.coat", binding["bound_organs"])
         self.assertIn("surface.breakup", binding["bound_organs"])
 

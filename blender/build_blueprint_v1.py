@@ -128,6 +128,59 @@ def _bind_breakup(material, bsdf, plan, base_color, base_roughness):
     return created
 
 
+
+def _bind_directional_roughness_fallback(material, bsdf, node_plan, base_roughness):
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+
+    tex = nodes.new("ShaderNodeTexCoord")
+    tex.name = "AXM Anisotropy Fallback Coordinates"
+    mapping = nodes.new("ShaderNodeMapping")
+    mapping.name = "AXM Anisotropy Fallback Mapping"
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.name = "AXM Anisotropy Fallback Noise"
+    noise.noise_dimensions = "3D"
+    _socket(noise, "Scale").default_value = float(node_plan.get("scale", 7.0))
+    _socket(noise, "Detail").default_value = 2.0
+
+    direction = node_plan.get("direction", "tangent_u")
+    stretch = float(node_plan.get("stretch", 8.0))
+    if direction == "tangent_v":
+        mapping.inputs["Scale"].default_value = (stretch, 1.0, stretch)
+    else:
+        mapping.inputs["Scale"].default_value = (1.0, stretch, stretch)
+    mapping.inputs["Rotation"].default_value[2] = float(node_plan.get("rotation", 0.0)) * 2.0 * math.pi
+
+    links.new(tex.outputs["Object"], mapping.inputs["Vector"])
+    links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+
+    centered = nodes.new("ShaderNodeMath")
+    centered.name = "AXM Anisotropy Fallback Center"
+    centered.operation = "SUBTRACT"
+    centered.inputs[1].default_value = 0.5
+    links.new(noise.outputs["Fac"], centered.inputs[0])
+
+    amount = nodes.new("ShaderNodeMath")
+    amount.name = "AXM Anisotropy Fallback Amount"
+    amount.operation = "MULTIPLY"
+    amount.inputs[1].default_value = 2.0 * float(node_plan.get("roughness_variation", 0.16))
+    links.new(centered.outputs[0], amount.inputs[0])
+
+    roughness = _socket(bsdf, "Roughness")
+    add = nodes.new("ShaderNodeMath")
+    add.name = "AXM Anisotropy Fallback Roughness"
+    add.operation = "ADD"
+    add.use_clamp = True
+    if roughness.is_linked:
+        previous = roughness.links[0].from_socket
+        links.new(previous, add.inputs[0])
+    else:
+        add.inputs[0].default_value = float(base_roughness)
+    links.new(amount.outputs[0], add.inputs[1])
+    links.new(add.outputs[0], roughness)
+
+    return [tex.name, mapping.name, noise.name, centered.name, amount.name, add.name]
+
 def apply_response_binding(material, bsdf, spec):
     plan = spec.get("blender_response_binding")
     if not plan:
@@ -161,6 +214,13 @@ def apply_response_binding(material, bsdf, spec):
         rgba(spec["color"]),
         float(spec["roughness"]),
     ))
+    for fallback_plan in (
+        item for item in plan.get("node_plans", [])
+        if item.get("kind") == "directional-roughness-fallback"
+    ):
+        node_names.extend(_bind_directional_roughness_fallback(
+            material, bsdf, fallback_plan, float(spec["roughness"])
+        ))
     material["axm_response_binding_plan"] = json.dumps(plan, sort_keys=True)
     return {
         "material": spec["id"],
@@ -168,6 +228,7 @@ def apply_response_binding(material, bsdf, spec):
         "requested_organs": plan.get("requested_organs", []),
         "bound_organs": plan.get("bound_organs", []),
         "held_organs": plan.get("held_organs", []),
+        "fallbacks": plan.get("fallbacks", []),
         "applied_sockets": sorted(applied),
         "created_nodes": node_names,
         "evidence": "declared_contract_match_not_tested",
@@ -395,7 +456,11 @@ def main():
     held_response_organs = [
         item for receipt in response_binding_receipts for item in receipt.get("held_organs", [])
     ]
+    fallback_response_organs = [
+        item for receipt in response_binding_receipts for item in receipt.get("fallbacks", [])
+    ]
     verified_response_organs = sorted(material_verification.get("verified_organs", []))
+    verified_response_fallbacks = material_verification.get("verified_fallbacks", [])
     material_response_status = "PASS_NO_ACTIVE_ORGANS"
     if bound_response_organs:
         material_response_status = (
@@ -423,10 +488,12 @@ def main():
             "active_organs": active_response_organs,
             "bound_not_render_verified_organs": bound_response_organs,
             "held_organs": held_response_organs,
+            "fallbacks": fallback_response_organs,
             "render_verified_organs": verified_response_organs,
+            "render_verified_fallbacks": verified_response_fallbacks,
             "host_verification": material_verification,
             "base_scalar_projection": True,
-            "cheap_four_binding_constructed": bool(bound_response_organs),
+            "binding_constructed": bool(bound_response_organs or fallback_response_organs),
             "binding_receipts": response_binding_receipts,
             "status": material_response_status,
         },

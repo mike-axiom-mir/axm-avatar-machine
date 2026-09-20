@@ -46,3 +46,11 @@ The cheap-four binder now has an independent EEVEE 4.3 pixel verifier. It create
 The receipt is written to `material-response-proof/receipt.json` and its proof PNGs remain in that directory. `verified_render_receipt` is deliberately scoped to these Blender/EEVEE probe scenes. It does not claim physical accuracy, numerical equivalence with the donor reference host, aesthetic acceptance, or game-engine parity.
 
 The Blueprint run still remains HOLD whenever requested organs such as subsurface or wear layering are not yet bound, even if all cheap-four probes pass.
+
+## EEVEE anisotropy correction
+
+The Blender 4.3 manual marks Principled anisotropy as Cycles-only and EEVEE anisotropy as unsupported. Avatar Machine therefore does **not** promote `surface.anisotropy` to bound in the EEVEE host.
+
+For EEVEE, the requested anisotropy organ stays `HOLD_EEVEE_ANISOTROPY_UNSUPPORTED`. The builder may apply the Opus pack's declared fallback — directionally stretched roughness — as a separately named `directional_roughness` fallback. Pixel evidence for that fallback is stored separately from `render_verified_organs`.
+
+The breakup probe also uses a resolvable authored 40 mm scale for the host capability test. This proves the breakup node path can produce deterministic visible roughness/color variation; it does not claim that pore-scale 1–3 mm breakup must be visibly resolved in a 96×96 or full-body render.

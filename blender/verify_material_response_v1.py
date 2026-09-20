@@ -239,7 +239,7 @@ def run_verification(output_path):
         "breakup": {
             "roughness_variation": 0.28,
             "color_variation": 0.14,
-            "scale_mm": 3.0,
+            "scale_mm": 40.0,
             "octaves": 3,
             "seed": 17,
         },
@@ -264,7 +264,7 @@ def run_verification(output_path):
         "local_detail_gain": b_detail_on / max(b_detail_off, 1e-9),
         "repeat_mean_abs_rgb_delta": b_repeat_delta,
         "render_hashes": [b_on["png_sha256"], b_off["png_sha256"], b_repeat["png_sha256"]],
-        "criterion": "delta>0.002, local-detail gain>1.02, repeat delta<1e-6",
+        "criterion": "delta>0.002, local-detail gain>1.02, repeat delta<1e-6 at authored 40 mm probe scale",
     }
 
     # Sheen: grazing-angle response should increase rim/centre behavior.
@@ -310,14 +310,15 @@ def run_verification(output_path):
         "criterion": "delta>0.001 and 99.5th-percentile highlight gain>1.01",
     }
 
-    # Anisotropy: must affect pixels, and changing the authored orientation must alter the highlight.
+    # EEVEE 4.3 does not support true Principled anisotropy.
+    # Verify the explicit donor-declared directional-roughness fallback separately.
     aniso_base = {"color": "#a9adb5", "metallic": 1.0, "roughness": 0.32}
     aniso_response = {
         "metallic": 1.0,
         "roughness": 0.32,
         "anisotropy": {"strength": 0.9, "direction": "tangent_u", "rotation": 0.0},
     }
-    a_on, a_off = _render_pair(scene, sphere, output, "anisotropy", aniso_base, aniso_response)
+    a_on, a_off = _render_pair(scene, sphere, output, "anisotropy-fallback", aniso_base, aniso_response)
     rotated = {
         **aniso_response,
         "anisotropy": {"strength": 0.9, "direction": "tangent_u", "rotation": 0.25},
@@ -325,23 +326,43 @@ def run_verification(output_path):
     a_rot = _render_probe(
         scene,
         sphere,
-        _response_spec("anisotropy-rotated", aniso_base["color"], 1.0, 0.32, rotated),
-        output / "anisotropy-rotated.png",
+        _response_spec("anisotropy-fallback-rotated", aniso_base["color"], 1.0, 0.32, rotated),
+        output / "anisotropy-fallback-rotated.png",
     )
     a_delta = _mean_abs_delta(a_on, a_off)
     a_rotation_delta = _mean_abs_delta(a_on, a_rot)
-    a_pass = a_delta > 0.0005 and a_rotation_delta > 0.0005
+    a_pass = a_delta > 0.001 and a_rotation_delta > 0.001
     cases["surface.anisotropy"] = {
-        "passed": a_pass,
-        "mean_abs_rgb_delta_vs_isotropic": a_delta,
-        "mean_abs_rgb_delta_after_quarter_rotation": a_rotation_delta,
+        "passed": False,
+        "organ_status": "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED",
+        "fallback": {
+            "name": "directional_roughness",
+            "passed": a_pass,
+            "mean_abs_rgb_delta_vs_plain_roughness": a_delta,
+            "mean_abs_rgb_delta_after_quarter_rotation": a_rotation_delta,
+            "criterion": "fallback delta>0.001 and orientation delta>0.001",
+        },
         "render_hashes": [a_on["png_sha256"], a_off["png_sha256"], a_rot["png_sha256"]],
-        "criterion": "isotropic delta>0.0005 and orientation delta>0.0005",
-        "approximation": "generic primitive host uses deterministic radial-Z tangent; donor-host equivalence is not claimed",
+        "truth": "The fallback is visual evidence for directional roughness only, not true anisotropic reflection.",
     }
 
-    verified = sorted(organ for organ, result in cases.items() if result["passed"])
-    status = "PASS" if verified == sorted(ORGAN_IDS) else "HOLD"
+    verified = sorted(
+        organ for organ, result in cases.items()
+        if organ != "surface.anisotropy" and result["passed"]
+    )
+    verified_fallbacks = []
+    if cases["surface.anisotropy"]["fallback"]["passed"]:
+        verified_fallbacks.append({
+            "organ": "surface.anisotropy",
+            "fallback": "directional_roughness",
+            "evidence": "verified_render_receipt",
+        })
+    expected_direct = {"surface.breakup", "surface.sheen", "surface.coat"}
+    status = (
+        "PASS_SUPPORTED_AND_FALLBACKS"
+        if set(verified) == expected_direct and verified_fallbacks
+        else "HOLD"
+    )
     receipt = {
         "schema": "axm.avatar.blender-material-response-verification/v0.1",
         "host": {
@@ -350,11 +371,16 @@ def run_verification(output_path):
             "resolution": [96, 96],
         },
         "verified_organs": verified,
+        "verified_fallbacks": verified_fallbacks,
         "cases": cases,
         "status": status,
-        "evidence": "verified_render_receipt" if status == "PASS" else "declared_contract_match_not_tested",
+        "evidence": (
+            "verified_render_receipt"
+            if status == "PASS_SUPPORTED_AND_FALLBACKS"
+            else "declared_contract_match_not_tested"
+        ),
         "scope": (
-            "These measurements prove visible pixel effects for the Avatar Machine Blender 4.3 probe scenes only. "
+            "These measurements prove direct breakup/sheen/coat pixel effects and the anisotropy fallback in the Avatar Machine Blender 4.3 EEVEE probe scenes only. "
             "They do not prove physical correctness, Opus/reference-host numerical equivalence, artistic quality, "
             "or parity in exported game-engine materials."
         ),

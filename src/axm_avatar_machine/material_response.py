@@ -206,13 +206,12 @@ def material_response_catalog() -> dict[str, Any]:
     }
 
 
-def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]:
-    """Compile the cheap-four response organs to an inspectable Blender 4.x binding plan.
-
-    This is a host binding contract, not render evidence. Any active organ outside
-    the cheap four stays explicit HOLD. Grain/custom-vector anisotropy also stays
-    HOLD until Avatar Machine has a mesh-owned direction field.
-    """
+def compile_blender_response_binding(
+    response: dict[str, Any],
+    *,
+    renderer: str = "BLENDER_EEVEE_NEXT",
+) -> dict[str, Any]:
+    """Compile explicit Blender host bindings without transferring donor evidence."""
     if not isinstance(response, dict):
         raise MaterialResponseHold("material response must be an object")
     requested = active_organs(response)
@@ -221,6 +220,7 @@ def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]
     nodes: list[dict[str, Any]] = []
     bound: list[str] = []
     held: list[dict[str, str]] = []
+    fallbacks: list[dict[str, Any]] = []
     approximations: list[str] = []
 
     if "surface.sheen" in requested:
@@ -230,6 +230,11 @@ def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]
         if isinstance(value.get("tint"), list) and len(value["tint"]) == 3:
             colors["Sheen Tint"] = [float(v) for v in value["tint"]]
         bound.append("surface.sheen")
+        if renderer == "BLENDER_EEVEE_NEXT":
+            approximations.append(
+                "Blender documents the EEVEE Principled sheen layer as an approximation; "
+                "Avatar Machine still requires host pixel evidence."
+            )
 
     if "surface.coat" in requested:
         value = response.get("clearcoat", {})
@@ -254,13 +259,37 @@ def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]
             "seed_w": round(((seed % 100000) * 0.61803398875) % 1000.0, 8),
             "roughness_variation": float(value.get("roughness_variation", 0)),
             "color_variation": float(value.get("color_variation", 0)),
+            "scale_mm": scale_mm,
         })
         bound.append("surface.breakup")
 
     if "surface.anisotropy" in requested:
         value = response.get("anisotropy", {})
         direction = value.get("direction", "tangent_u")
-        if direction not in {"tangent_u", "tangent_v"}:
+        if renderer == "BLENDER_EEVEE_NEXT":
+            held.append({
+                "organ": "surface.anisotropy",
+                "reason": "HOLD_EEVEE_ANISOTROPY_UNSUPPORTED",
+            })
+            fallbacks.append({
+                "organ": "surface.anisotropy",
+                "fallback": "directional_roughness",
+                "evidence": "declared_contract_match_not_tested",
+            })
+            nodes.append({
+                "kind": "directional-roughness-fallback",
+                "direction": direction,
+                "rotation": float(value.get("rotation", 0)) % 1.0,
+                "strength": abs(float(value.get("strength", 0))),
+                "scale": 7.0,
+                "stretch": 8.0,
+                "roughness_variation": min(0.22, 0.08 + abs(float(value.get("strength", 0))) * 0.12),
+            })
+            approximations.append(
+                "EEVEE 4.3 does not support Principled anisotropy. Avatar Machine uses the donor pack's "
+                "declared no-anisotropy fallback: directional roughness variation. The true organ remains HOLD."
+            )
+        elif direction not in {"tangent_u", "tangent_v"}:
             held.append({
                 "organ": "surface.anisotropy",
                 "reason": "HOLD_DIRECTION_FIELD_NOT_OWNED",
@@ -280,10 +309,6 @@ def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]
                 "axis": "Z",
                 "source_direction": direction,
             })
-            approximations.append(
-                "Anisotropy uses a deterministic object-local radial-Z tangent in the generic primitive host; "
-                "render evidence is still required before equivalence to the donor reference host is claimed."
-            )
             bound.append("surface.anisotropy")
 
     for organ in requested:
@@ -292,25 +317,29 @@ def compile_blender_response_binding(response: dict[str, Any]) -> dict[str, Any]
         held.append({"organ": organ, "reason": "HOLD_ORGAN_NOT_BOUND_IN_BLUEPRINT_BLENDER_V1"})
 
     status = "PASS_NO_ACTIVE_ORGANS"
-    if requested:
+    if bound or fallbacks:
         status = "HOLD_RENDER_VERIFICATION_REQUIRED"
     if held:
         status = "HOLD_PARTIAL_BINDING_AND_RENDER_VERIFICATION_REQUIRED"
 
     return {
-        "schema": "axm.avatar.blender-material-response-binding/v0.1",
+        "schema": "axm.avatar.blender-material-response-binding/v0.2",
+        "renderer": renderer,
         "requested_organs": requested,
         "bound_organs": sorted(set(bound)),
         "held_organs": held,
+        "fallbacks": fallbacks,
         "principled_sockets": sockets,
         "principled_colors": colors,
         "node_plans": nodes,
         "approximations": approximations,
         "evidence": EVIDENCE,
         "render_verified_organs": [],
+        "render_verified_fallbacks": [],
         "status": status,
         "truth": (
-            "Bound means the Blender node/socket construction is explicitly planned. "
-            "It does not mean the organ's visual verify case has passed in Blender."
+            "Bound means the requested behavior has an explicit renderer construction. "
+            "Fallback means the requested organ is still held and a declared approximation is used. "
+            "Neither is render evidence until its host probe passes."
         ),
     }
