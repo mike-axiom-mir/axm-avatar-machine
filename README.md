@@ -39,6 +39,8 @@ new generic Blender builder realizes that plan into:
 The compiler separates geometry, behavior and appearance signatures. A color-only
 change does not pretend to be geometry growth.
 
+Blueprint v1 also accepts an optional bounded `anatomy` block for high-leverage silhouette controls: head width/depth, eye spacing/size, nose, ears, jaw, mouth width, shoulders, hips, limb thickness, hands and feet. Old Blueprints without that block retain the previous primitive-doll geometry.
+
 Example:
 
 ```bash

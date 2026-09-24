@@ -21,6 +21,7 @@ regression baseline. The new blueprint builder lives beside it.
 Each character exposes bounded controls for:
 
 - proportions: height, head scale, torso width and limb length;
+- optional anatomy/silhouette controls: head width/depth, eye spacing/size, nose size/projection, ears, jaw width, mouth width, shoulder width, hip width, limb thickness, hand size and foot size;
 - palette: skin, primary, secondary, hair and shoes;
 - face: hair, facial hair, eye and mouth choices;
 - wardrobe: top, bottom and one accessory;
@@ -57,3 +58,32 @@ compiler source and Blender builder under `creator-parts/`.
 
 `PASS` on the run receipt means deterministic compilation and structural GLB
 inspection succeeded. It is not automatic aesthetic approval or proof of likeness.
+
+## Anatomy / silhouette extension
+
+The first rendered Blueprint proof showed that material response had moved ahead of the shape vocabulary. The optional `anatomy` block adds a small set of explicit geometry controls without changing old Blueprints when the block is absent.
+
+The controls are deterministic geometry causes, so they affect `geometry_signature`. They do not alter animation timing or count as material growth. Nose, jaw and ear geometry are only added when their explicit sizes are greater than zero.
+
+Example:
+
+```json
+"anatomy": {
+  "head_width": 1.08,
+  "head_depth": 0.94,
+  "eye_spacing": 0.88,
+  "eye_size": 0.78,
+  "nose_size": 0.68,
+  "nose_projection": 1.05,
+  "ear_size": 0.62,
+  "jaw_width": 1.02,
+  "mouth_width": 1.12,
+  "shoulder_width": 1.12,
+  "hip_width": 1.08,
+  "limb_thickness": 1.10,
+  "hand_size": 1.08,
+  "foot_size": 1.05
+}
+```
+
+This remains stylized-doll construction. It is not a smooth anatomical mesh system and does not claim realistic human anatomy.

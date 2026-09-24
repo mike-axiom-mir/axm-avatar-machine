@@ -31,6 +31,40 @@ PROPORTION_BOUNDS = {
     "limb_length": (0.75, 1.3),
 }
 
+ANATOMY_BOUNDS = {
+    "head_width": (0.75, 1.35),
+    "head_depth": (0.75, 1.35),
+    "eye_spacing": (0.65, 1.45),
+    "eye_size": (0.65, 1.35),
+    "nose_size": (0.0, 1.4),
+    "nose_projection": (0.6, 1.6),
+    "ear_size": (0.0, 1.4),
+    "jaw_width": (0.0, 1.4),
+    "mouth_width": (0.65, 1.5),
+    "shoulder_width": (0.75, 1.4),
+    "hip_width": (0.75, 1.35),
+    "limb_thickness": (0.7, 1.35),
+    "hand_size": (0.7, 1.4),
+    "foot_size": (0.7, 1.4),
+}
+
+ANATOMY_DEFAULTS = {
+    "head_width": 1.0,
+    "head_depth": 1.0,
+    "eye_spacing": 1.0,
+    "eye_size": 1.0,
+    "nose_size": 0.0,
+    "nose_projection": 1.0,
+    "ear_size": 0.0,
+    "jaw_width": 0.0,
+    "mouth_width": 1.0,
+    "shoulder_width": 1.0,
+    "hip_width": 1.0,
+    "limb_thickness": 1.0,
+    "hand_size": 1.0,
+    "foot_size": 1.0,
+}
+
 
 class BlueprintError(ValueError):
     pass
@@ -120,6 +154,21 @@ def validate_blueprint(value: Any) -> dict[str, Any]:
             for key, bounds in PROPORTION_BOUNDS.items()
         }
 
+        anatomy = _require_dict(char.get("anatomy", {}), f"characters[{index}].anatomy")
+        unknown_anatomy = sorted(set(anatomy) - set(ANATOMY_BOUNDS))
+        if unknown_anatomy:
+            raise BlueprintError(
+                f"characters[{index}].anatomy has unsupported controls: {unknown_anatomy}"
+            )
+        normalized_anatomy = {
+            key: _bounded_number(
+                anatomy.get(key, ANATOMY_DEFAULTS[key]),
+                bounds,
+                f"characters[{index}].anatomy.{key}",
+            )
+            for key, bounds in ANATOMY_BOUNDS.items()
+        }
+
         palette = _require_dict(char.get("palette"), f"characters[{index}].palette")
         normalized_palette = {
             key: _hex_color(palette.get(key), f"characters[{index}].palette.{key}")
@@ -163,6 +212,7 @@ def validate_blueprint(value: Any) -> dict[str, Any]:
         normalized_characters.append({
             "id": char_id,
             "proportions": normalized_proportions,
+            "anatomy": normalized_anatomy,
             "palette": normalized_palette,
             "surface_families": normalized_surfaces,
             "features": normalized_features,
@@ -264,6 +314,7 @@ def _bone_specs(char: dict[str, Any]) -> list[dict[str, Any]]:
     h = char["proportions"]["height"]
     limb = char["proportions"]["limb_length"]
     torso = char["proportions"]["torso_width"]
+    anatomy = char["anatomy"]
     hip_z = pz + 1.0 * h
     chest_z = pz + 1.72 * h
     neck_z = pz + 2.18 * h
@@ -283,8 +334,8 @@ def _bone_specs(char: dict[str, Any]) -> list[dict[str, Any]]:
     add("spine", (px, py, pz + 1.3 * h), (px, py, chest_z), "pelvis")
     add("neck", (px, py, chest_z), (px, py, neck_z), "spine")
     add("head", (px, py, neck_z), (px, py, pz + 3.05 * h), "neck")
-    leg_x = 0.18 * torso
-    shoulder_x = 0.48 * torso
+    leg_x = 0.18 * torso * anatomy["hip_width"]
+    shoulder_x = 0.48 * torso * anatomy["shoulder_width"]
     for side, sign in (("L", -1), ("R", 1)):
         lx = px + sign * leg_x
         add(f"{side}_thigh", (lx, py, hip_z + 0.08 * h), (lx, py, pz + 0.62 * h), "pelvis")
@@ -301,7 +352,11 @@ def _objects_for_character(char: dict[str, Any]) -> list[dict[str, Any]]:
     cid = char["id"]
     px, py, pz = char["position"]
     p = char["proportions"]
+    a = char["anatomy"]
     h, head_scale, torso_w, limb = p["height"], p["head"], p["torso_width"], p["limb_length"]
+    head_w, head_d = a["head_width"], a["head_depth"]
+    shoulder_w, hip_w = a["shoulder_width"], a["hip_width"]
+    limb_thickness = a["limb_thickness"]
     skin = f"{cid}:skin"
     primary = f"{cid}:primary"
     secondary = f"{cid}:secondary"
@@ -320,67 +375,115 @@ def _objects_for_character(char: dict[str, Any]) -> list[dict[str, Any]]:
 
     # Core body.
     add("pelvis", "ellipsoid", secondary, "pelvis",
-        location=[px, py, pz + 1.12*h], scale=[0.36*torso_w, 0.26, 0.28*h])
+        location=[px, py, pz + 1.12*h], scale=[0.36*torso_w*hip_w, 0.26, 0.28*h])
     add("torso", "ellipsoid", primary, "spine",
         location=[px, py, pz + 1.70*h], scale=[0.48*torso_w, 0.31, 0.60*h])
     add("neck", "cylinder", skin, "neck",
         location=[px, py, pz + 2.27*h], radius=0.16*torso_w, depth=0.30*h, rotation=[0,0,0])
     add("head", "ellipsoid", skin, "head",
-        location=[px, py, pz + 2.72*h], scale=[0.42*head_scale, 0.37*head_scale, 0.48*head_scale*h])
+        location=[px, py, pz + 2.72*h],
+        scale=[0.42*head_scale*head_w, 0.37*head_scale*head_d, 0.48*head_scale*h])
 
     for side, sign in (("L", -1), ("R", 1)):
-        lx = px + sign*0.18*torso_w
-        ax = px + sign*0.48*torso_w
+        lx = px + sign*0.18*torso_w*hip_w
+        ax = px + sign*0.48*torso_w*shoulder_w
         add(f"{side}-thigh", "cylinder_between", secondary, f"{side}_thigh",
-            start=[lx, py, pz+1.08*h], end=[lx, py, pz+0.64*h], radius=0.17*torso_w)
+            start=[lx, py, pz+1.08*h], end=[lx, py, pz+0.64*h], radius=0.17*torso_w*limb_thickness)
         add(f"{side}-shin", "cylinder_between", secondary, f"{side}_shin",
-            start=[lx, py, pz+0.62*h], end=[lx, py, pz+0.25*h], radius=0.145*torso_w)
+            start=[lx, py, pz+0.62*h], end=[lx, py, pz+0.25*h], radius=0.145*torso_w*limb_thickness)
         add(f"{side}-foot", "ellipsoid", shoes, f"{side}_foot",
-            location=[lx, py-0.12*limb, pz+0.15*h], scale=[0.20*torso_w, 0.30*limb, 0.13*h])
+            location=[lx, py-0.12*limb*a["foot_size"], pz+0.15*h],
+            scale=[0.20*torso_w*a["foot_size"], 0.30*limb*a["foot_size"], 0.13*h*a["foot_size"]])
         add(f"{side}-upperarm", "cylinder_between", primary, f"{side}_upperarm",
-            start=[ax, py, pz+2.00*h], end=[ax, py, pz+1.42*h], radius=0.15*torso_w)
+            start=[ax, py, pz+2.00*h], end=[ax, py, pz+1.42*h], radius=0.15*torso_w*limb_thickness)
         add(f"{side}-forearm", "cylinder_between", primary, f"{side}_forearm",
-            start=[ax, py, pz+1.39*h], end=[ax, py, pz+1.03*h], radius=0.135*torso_w)
+            start=[ax, py, pz+1.39*h], end=[ax, py, pz+1.03*h], radius=0.135*torso_w*limb_thickness)
         add(f"{side}-hand", "ellipsoid", skin, f"{side}_hand",
-            location=[ax, py-0.015, pz+0.92*h], scale=[0.16*torso_w, 0.13, 0.19*h])
+            location=[ax, py-0.015, pz+0.92*h],
+            scale=[0.16*torso_w*a["hand_size"], 0.13*a["hand_size"], 0.19*h*a["hand_size"]])
 
-    # Face.
+    # Face / high-leverage anatomy controls.
     eye_z = pz + 2.84*h
-    eye_y = py - 0.35*head_scale
-    eye_scale = [0.105*head_scale, 0.045, 0.085*head_scale]
+    eye_y = py - 0.35*head_scale*head_d
+    eye_scale = [
+        0.105*head_scale*a["eye_size"],
+        0.045*a["eye_size"],
+        0.085*head_scale*a["eye_size"],
+    ]
     if char["features"]["eyes"] == "narrow":
         eye_scale[2] *= 0.62
     for side, sign in (("L", -1), ("R", 1)):
-        ex = px + sign*0.16*head_scale
+        ex = px + sign*0.16*head_scale*head_w*a["eye_spacing"]
         add(f"{side}-eye", "ellipsoid", f"{cid}:eye", "head",
             location=[ex, eye_y, eye_z], scale=eye_scale)
         add(f"{side}-pupil", "ellipsoid", f"{cid}:pupil", "head",
-            location=[ex, eye_y-0.04, eye_z], scale=[0.035,0.02,0.045])
+            location=[ex, eye_y-0.04*a["eye_size"], eye_z],
+            scale=[0.035*a["eye_size"],0.02*a["eye_size"],0.045*a["eye_size"]])
+
+    if a["nose_size"] > 0:
+        add("nose", "ellipsoid", skin, "head",
+            location=[
+                px,
+                py - 0.39*head_d - 0.055*a["nose_projection"],
+                pz + 2.68*h,
+            ],
+            scale=[
+                0.07*head_scale*a["nose_size"],
+                0.055*a["nose_size"]*a["nose_projection"],
+                0.11*head_scale*h*a["nose_size"],
+            ])
+
+    if a["jaw_width"] > 0:
+        add("jaw", "ellipsoid", skin, "head",
+            location=[px, py+0.015, pz+2.51*h],
+            scale=[
+                0.29*head_scale*a["jaw_width"],
+                0.31*head_scale*head_d,
+                0.18*head_scale*h,
+            ])
+
+    if a["ear_size"] > 0:
+        for side, sign in (("L", -1), ("R", 1)):
+            add(f"{side}-ear", "ellipsoid", skin, "head",
+                location=[
+                    px + sign*0.43*head_scale*head_w,
+                    py,
+                    pz + 2.73*h,
+                ],
+                scale=[
+                    0.065*head_scale*a["ear_size"],
+                    0.045*head_d,
+                    0.12*head_scale*h*a["ear_size"],
+                ])
 
     mouth = char["features"]["mouth"]
     if mouth == "pucker":
         for sign in (-1, 1):
             add(f"mouth-{sign}", "ellipsoid", f"{cid}:mouth", "head",
-                location=[px+sign*0.045, py-0.39, pz+2.55*h], scale=[0.065,0.025,0.045])
+                location=[px+sign*0.045*a["mouth_width"], py-0.39*head_d, pz+2.55*h],
+                scale=[0.065*a["mouth_width"],0.025,0.045])
     else:
-        width = 0.18 if mouth == "smile" else 0.13
+        width = (0.18 if mouth == "smile" else 0.13) * a["mouth_width"]
         add("mouth", "box", f"{cid}:mouth", "head",
-            location=[px, py-0.39, pz+2.55*h], dimensions=[width,0.025,0.035], rotation=[0,0,0])
+            location=[px, py-0.39*head_d, pz+2.55*h], dimensions=[width,0.025,0.035], rotation=[0,0,0])
 
     facial_hair = char["features"]["facial_hair"]
     if facial_hair != "none":
         scale_z = 0.23 if facial_hair == "beard" else 0.15
         add("facial-hair", "ellipsoid", hair, "head",
-            location=[px, py-0.055, pz+2.54*h], scale=[0.35*head_scale,0.34*head_scale,scale_z*head_scale])
+            location=[px, py-0.055*head_d, pz+2.54*h],
+            scale=[0.35*head_scale*head_w,0.34*head_scale*head_d,scale_z*head_scale])
 
     hair_style = char["features"]["hair"]
     if hair_style != "none":
         if hair_style in {"cap", "bob"}:
             add("hair", "ellipsoid", hair, "head",
-                location=[px, py+0.01, pz+2.97*h], scale=[0.43*head_scale,0.39*head_scale,0.25*head_scale])
+                location=[px, py+0.01, pz+2.97*h],
+                scale=[0.43*head_scale*head_w,0.39*head_scale*head_d,0.25*head_scale])
         elif hair_style == "swept":
             add("hair", "ellipsoid", hair, "head",
-                location=[px+0.06, py+0.01, pz+3.00*h], scale=[0.46*head_scale,0.38*head_scale,0.22*head_scale],
+                location=[px+0.06*head_w, py+0.01, pz+3.00*h],
+                scale=[0.46*head_scale*head_w,0.38*head_scale*head_d,0.22*head_scale],
                 rotation=[0,0,-0.18])
         elif hair_style == "mohawk":
             add("hair", "box", hair, "head",
@@ -390,8 +493,8 @@ def _objects_for_character(char: dict[str, Any]) -> list[dict[str, Any]]:
     if top == "jacket":
         for sign in (-1,1):
             add(f"jacket-{sign}", "box", secondary, "spine",
-                location=[px+sign*0.29*torso_w, py-0.02, pz+1.72*h],
-                dimensions=[0.23*torso_w,0.60,1.0*h], rotation=[0,sign*0.10,0])
+                location=[px+sign*0.29*torso_w*shoulder_w, py-0.02, pz+1.72*h],
+                dimensions=[0.23*torso_w*shoulder_w,0.60,1.0*h], rotation=[0,sign*0.10,0])
     elif top == "hoodie":
         add("hood", "torus", secondary, "neck",
             location=[px,py+0.06,pz+2.21*h], major_radius=0.28*torso_w, minor_radius=0.055,
@@ -403,17 +506,18 @@ def _objects_for_character(char: dict[str, Any]) -> list[dict[str, Any]]:
     bottom = char["wardrobe"]["bottom"]
     if bottom == "shorts":
         add("shorts", "box", primary, "pelvis",
-            location=[px,py,pz+1.02*h], dimensions=[0.72*torso_w,0.48,0.32*h], rotation=[0,0,0])
+            location=[px,py,pz+1.02*h], dimensions=[0.72*torso_w*hip_w,0.48,0.32*h], rotation=[0,0,0])
 
     accessory = char["wardrobe"]["accessory"]
     if accessory == "headphones":
         add("headphones", "torus", secondary, "neck",
-            location=[px,py,pz+2.28*h], major_radius=0.34*head_scale, minor_radius=0.05,
+            location=[px,py,pz+2.28*h], major_radius=0.34*head_scale*head_w, minor_radius=0.05,
             rotation=[math.pi/2,0,0], scale=[1,1,0.72])
     elif accessory == "glasses":
         for sign in (-1,1):
             add(f"glasses-{sign}", "torus", secondary, "head",
-                location=[px+sign*0.16*head_scale,py-0.38,eye_z], major_radius=0.115, minor_radius=0.012,
+                location=[px+sign*0.16*head_scale*head_w*a["eye_spacing"],py-0.38*head_d,eye_z],
+                major_radius=0.115*a["eye_size"], minor_radius=0.012,
                 rotation=[math.pi/2,0,0], scale=[1,1,1])
     elif accessory == "pin":
         add("pin", "torus", f"{cid}:hair", "spine",
